@@ -1,0 +1,141 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# ⬡ IMPERIUM - The Graph Subgraph Schema ⬡
+# ═══════════════════════════════════════════════════════════════════════════════
+
+type Song @entity {
+  id: ID!
+  songId: BigInt!
+  isrc: String!
+  title: String!
+  primaryCreator: Bytes!
+  metadataURI: String!
+  contentHash: Bytes!
+  registeredAt: BigInt!
+  verified: Boolean!
+  active: Boolean!
+  splits: [Split!]! @derivedFrom(field: "song")
+  payouts: [Payout!]! @derivedFrom(field: "song")
+  token: Token @derivedFrom(field: "song")
+  totalEarnings: BigInt!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+type Split @entity {
+  id: ID!
+  song: Song!
+  recipient: Bytes!
+  percentage: BigInt!
+  role: String!
+  active: Boolean!
+  createdAt: BigInt!
+}
+
+type Payout @entity {
+  id: ID!
+  payoutId: BigInt!
+  song: Song!
+  amount: BigInt!
+  token: Bytes!
+  source: String!
+  region: String!
+  distributed: Boolean!
+  distributions: [Distribution!]! @derivedFrom(field: "payout")
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Distribution @entity {
+  id: ID!
+  payout: Payout!
+  recipient: Bytes!
+  amount: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Token @entity {
+  id: ID!
+  tokenId: BigInt!
+  song: Song!
+  totalSupply: BigInt!
+  maxSupply: BigInt!
+  pricePerToken: BigInt!
+  paymentToken: Bytes!
+  mintingActive: Boolean!
+  royaltyShareBps: BigInt!
+  holders: [TokenHolder!]! @derivedFrom(field: "token")
+  mints: [TokenMint!]! @derivedFrom(field: "token")
+  createdAt: BigInt!
+}
+
+type TokenHolder @entity {
+  id: ID!
+  token: Token!
+  holder: Bytes!
+  balance: BigInt!
+  updatedAt: BigInt!
+}
+
+type TokenMint @entity {
+  id: ID!
+  token: Token!
+  buyer: Bytes!
+  amount: BigInt!
+  totalPaid: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Creator @entity {
+  id: ID!
+  address: Bytes!
+  songs: [Song!]! @derivedFrom(field: "primaryCreator")
+  totalSongs: BigInt!
+  totalEarnings: BigInt!
+  claimableBalance: BigInt!
+  createdAt: BigInt!
+}
+
+type ClaimableBalance @entity {
+  id: ID!
+  recipient: Bytes!
+  token: Bytes!
+  amount: BigInt!
+  updatedAt: BigInt!
+}
+
+type RoyaltyClaim @entity {
+  id: ID!
+  recipient: Bytes!
+  token: Bytes!
+  amount: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+# Analytics entities
+type DailyStats @entity {
+  id: ID!
+  date: String!
+  totalRoyalties: BigInt!
+  uniqueCreators: BigInt!
+  newSongs: BigInt!
+  claims: BigInt!
+}
+
+type RegionStats @entity {
+  id: ID!
+  region: String!
+  totalRoyalties: BigInt!
+  payoutCount: BigInt!
+  lastUpdated: BigInt!
+}
+
+type SourceStats @entity {
+  id: ID!
+  source: String!
+  totalRoyalties: BigInt!
+  payoutCount: BigInt!
+  lastUpdated: BigInt!
+}

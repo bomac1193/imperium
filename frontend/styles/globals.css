@@ -1,0 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --imperium-gold: #FFD700;
+  --imperium-dark: #0A0A0F;
+  --imperium-purple: #8B5CF6;
+  --imperium-blue: #3B82F6;
+}
+
+body {
+  @apply bg-imperium-dark text-white;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-imperium-darker;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-imperium-gold/30 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-imperium-gold/50;
+}
+
+/* Glowing text effect */
+.text-glow {
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(255, 215, 0, 0.3);
+}
+
+/* Card hover effect */
+.card-hover {
+  @apply transition-all duration-300;
+}
+
+.card-hover:hover {
+  @apply transform -translate-y-1;
+  box-shadow: 0 10px 40px rgba(255, 215, 0, 0.1);
+}
+
+/* Gradient border */
+.gradient-border {
+  position: relative;
+  background: linear-gradient(#0A0A0F, #0A0A0F) padding-box,
+              linear-gradient(135deg, #FFD700, #8B5CF6) border-box;
+  border: 2px solid transparent;
+}
+
+/* Button glow animation */
+.btn-glow {
+  @apply relative overflow-hidden;
+}
+
+.btn-glow::before {
+  content: '';
+  @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+  background: radial-gradient(circle at center, rgba(255, 215, 0, 0.3), transparent 70%);
+}
+
+.btn-glow:hover::before {
+  @apply opacity-100;
+}
+
+/* Mapbox overrides */
+.mapboxgl-map {
+  font-family: inherit;
+}
+
+.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib {
+  display: none !important;
+}
+
+/* Pulse animation for live data */
+@keyframes live-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.live-indicator {
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+/* Stats counter animation */
+.counter-animate {
+  @apply tabular-nums;
+}
+
+/* Hero gradient mesh */
+.mesh-gradient {
+  background:
+    radial-gradient(at 40% 20%, rgba(139, 92, 246, 0.3) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(255, 215, 0, 0.2) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(59, 130, 246, 0.2) 0px, transparent 50%),
+    radial-gradient(at 80% 50%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(255, 215, 0, 0.1) 0px, transparent 50%);
+}
+
+/* Glass effect */
+.glass {
+  @apply bg-white/5 backdrop-blur-xl border border-white/10;
+}
+
+/* Table styles */
+.table-imperium th {
+  @apply text-imperium-gold/80 font-medium text-left px-4 py-3 border-b border-white/10;
+}
+
+.table-imperium td {
+  @apply px-4 py-3 border-b border-white/5;
+}
+
+.table-imperium tr:hover {
+  @apply bg-white/5;
+}
+
+/* Form inputs */
+.input-imperium {
+  @apply w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg
+         focus:border-imperium-gold/50 focus:ring-1 focus:ring-imperium-gold/50
+         outline-none transition-all placeholder-white/30;
+}
+
+/* Loading skeleton */
+.skeleton {
+  @apply animate-pulse bg-white/10 rounded;
+}
