@@ -116,6 +116,73 @@ describe("Imperium Platform", function () {
     });
   });
 
+  describe("SongRegistry - o8 Integration", function () {
+    const O8_CID = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
+    const O8_HASH = ethers.keccak256(ethers.toUtf8Bytes("o8-declaration-content"));
+
+    beforeEach(async function () {
+      await songRegistry.connect(artist).registerSong(ISRC, TITLE, METADATA_URI, CONTENT_HASH);
+    });
+
+    it("Should link an o8 declaration to a song", async function () {
+      await expect(
+        songRegistry.connect(artist).linkO8Declaration(1, O8_CID, O8_HASH)
+      )
+        .to.emit(songRegistry, "O8DeclarationLinked")
+        .withArgs(1, O8_HASH, O8_CID);
+
+      const [cid, hash] = await songRegistry.getO8Declaration(1);
+      expect(cid).to.equal(O8_CID);
+      expect(hash).to.equal(O8_HASH);
+    });
+
+    it("Should reject non-owner linking", async function () {
+      await expect(
+        songRegistry.connect(fan).linkO8Declaration(1, O8_CID, O8_HASH)
+      ).to.be.revertedWithCustomError(songRegistry, "NotSongOwner");
+    });
+
+    it("Should allow operator to link", async function () {
+      const OPERATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("OPERATOR_ROLE"));
+      await songRegistry.grantRole(OPERATOR_ROLE, producer.address);
+
+      await expect(
+        songRegistry.connect(producer).linkO8Declaration(1, O8_CID, O8_HASH)
+      )
+        .to.emit(songRegistry, "O8DeclarationLinked")
+        .withArgs(1, O8_HASH, O8_CID);
+    });
+
+    it("Should reject empty CID", async function () {
+      await expect(
+        songRegistry.connect(artist).linkO8Declaration(1, "", O8_HASH)
+      ).to.be.revertedWithCustomError(songRegistry, "EmptyDeclarationCID");
+    });
+
+    it("Should allow re-linking (update declaration)", async function () {
+      await songRegistry.connect(artist).linkO8Declaration(1, O8_CID, O8_HASH);
+
+      const newCID = "bafybeihkoviema7g3gxyt6la7vd5ho32epufnd6stfi7igd5geqis53bua";
+      const newHash = ethers.keccak256(ethers.toUtf8Bytes("updated-declaration"));
+
+      await expect(
+        songRegistry.connect(artist).linkO8Declaration(1, newCID, newHash)
+      )
+        .to.emit(songRegistry, "O8DeclarationLinked")
+        .withArgs(1, newHash, newCID);
+
+      const [cid, hash] = await songRegistry.getO8Declaration(1);
+      expect(cid).to.equal(newCID);
+      expect(hash).to.equal(newHash);
+    });
+
+    it("Should have zero defaults for new songs", async function () {
+      const [cid, hash] = await songRegistry.getO8Declaration(1);
+      expect(cid).to.equal("");
+      expect(hash).to.equal(ethers.ZeroHash);
+    });
+  });
+
   describe("RoyaltySplit", function () {
     beforeEach(async function () {
       await songRegistry.connect(artist).registerSong(ISRC, TITLE, METADATA_URI, CONTENT_HASH);

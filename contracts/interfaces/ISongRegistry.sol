@@ -18,6 +18,8 @@ interface ISongRegistry {
         uint256 registeredAt;
         bool verified;
         bool active;
+        bytes32 o8DeclarationHash; // Hash of the o8 declaration content
+        string o8DeclarationCID;   // IPFS CID of the o8 declaration
     }
 
     event SongRegistered(
@@ -31,6 +33,7 @@ interface ISongRegistry {
     event SongVerified(uint256 indexed songId, address indexed verifier);
     event SongDeactivated(uint256 indexed songId, address indexed deactivator);
     event MetadataUpdated(uint256 indexed songId, string newMetadataURI);
+    event O8DeclarationLinked(uint256 indexed songId, bytes32 declarationHash, string declarationCID);
 
     function registerSong(
         string calldata isrc,
@@ -46,4 +49,7 @@ interface ISongRegistry {
     function getSongByISRC(string calldata isrc) external view returns (Song memory);
     function getCreatorSongs(address creator) external view returns (uint256[] memory);
     function totalSongs() external view returns (uint256);
+
+    function linkO8Declaration(uint256 songId, string calldata declarationCID, bytes32 declarationHash) external;
+    function getO8Declaration(uint256 songId) external view returns (string memory declarationCID, bytes32 declarationHash);
 }

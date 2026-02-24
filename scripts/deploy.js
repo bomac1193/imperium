@@ -25,9 +25,13 @@ async function main() {
   // Get USDC address based on network
   let usdcAddress;
   if (network === "polygon") {
-    usdcAddress = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"; // Polygon USDC
-  } else if (network === "mumbai") {
-    usdcAddress = "0x0FA8781a83E46826621b3BC094Ea2A0212e71B23"; // Mumbai test USDC
+    usdcAddress = "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359"; // Polygon USDC (native)
+  } else if (network === "amoy") {
+    usdcAddress = "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582"; // Amoy test USDC
+  } else if (network === "base") {
+    usdcAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC (native)
+  } else if (network === "baseSepolia") {
+    usdcAddress = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"; // Base Sepolia test USDC
   } else {
     // Deploy mock USDC for local/hardhat network
     console.log("\n📦 Deploying MockUSDC...");
@@ -146,16 +150,23 @@ export const CONTRACTS = {
   USDC: "${usdcAddress}",
 };
 
-export const CHAIN_ID = ${network === "polygon" ? 137 : network === "mumbai" ? 80001 : 31337};
+export const CHAIN_ID = ${
+    network === "polygon" ? 137 :
+    network === "amoy" ? 80002 :
+    network === "base" ? 8453 :
+    network === "baseSepolia" ? 84532 :
+    31337
+  };
 export const NETWORK_NAME = "${network}";
 `;
 
   fs.writeFileSync(path.join(frontendConfigDir, "contracts.ts"), frontendConfig);
   console.log("📁 Frontend config saved to:", path.join(frontendConfigDir, "contracts.ts"));
 
-  // Verify contracts on Polygonscan (if on Polygon/Mumbai)
-  if (network === "polygon" || network === "mumbai") {
-    console.log("\n📋 Verifying contracts on Polygonscan...");
+  // Verify contracts on block explorer (if on a public network)
+  if (["polygon", "amoy", "base", "baseSepolia"].includes(network)) {
+    const explorerName = network.startsWith("base") ? "Basescan" : "Polygonscan";
+    console.log(`\n📋 Verifying contracts on ${explorerName}...`);
     console.log("Run the following commands to verify:");
     console.log(`npx hardhat verify --network ${network} ${songRegistryAddress} ${deployer.address}`);
     console.log(`npx hardhat verify --network ${network} ${royaltySplitAddress} ${songRegistryAddress} ${deployer.address}`);

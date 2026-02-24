@@ -146,4 +146,88 @@ router.get("/jobs", async (req, res, next) => {
   }
 });
 
+/**
+ * GET /api/oracle/o8-declaration/:cid
+ * Fetch an o8 provenance declaration from IPFS and validate its structure
+ */
+router.get("/o8-declaration/:cid", async (req, res, next) => {
+  try {
+    const { cid } = req.params;
+    const gateway = process.env.IPFS_GATEWAY || "https://ipfs.io/ipfs/";
+    const axios = require("axios");
+
+    const response = await axios.get(`${gateway}${cid}`, {
+      timeout: 15000,
+      headers: { Accept: "application/json" },
+    });
+
+    const declaration = response.data;
+
+    // Validate expected o8 declaration structure
+    const requiredFields = ["@context", "type", "creator", "contentFingerprint"];
+    const missingFields = requiredFields.filter((f) => !declaration[f]);
+
+    res.json({
+      cid,
+      valid: missingFields.length === 0,
+      missingFields: missingFields.length > 0 ? missingFields : undefined,
+      declaration,
+      fetchedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    if (error.code === "ECONNABORTED" || error.response?.status === 504) {
+      return res.status(504).json({ error: "IPFS gateway timeout", cid: req.params.cid });
+    }
+    if (error.response?.status === 404) {
+      return res.status(404).json({ error: "Declaration not found on IPFS", cid: req.params.cid });
+    }
+    next(error);
+  }
+});
+
+/**
+ * POST /api/oracle/verify-o8
+ * Verify an o8 declaration's content fingerprint matches a song's contentHash
+ */
+router.post("/verify-o8", async (req, res, next) => {
+  try {
+    const { cid, songContentHash } = req.body;
+
+    if (!cid || !songContentHash) {
+      return res.status(400).json({ error: "cid and songContentHash are required" });
+    }
+
+    const gateway = process.env.IPFS_GATEWAY || "https://ipfs.io/ipfs/";
+    const axios = require("axios");
+
+    const response = await axios.get(`${gateway}${cid}`, {
+      timeout: 15000,
+      headers: { Accept: "application/json" },
+    });
+
+    const declaration = response.data;
+
+    const fingerprintMatch =
+      declaration.contentFingerprint &&
+      declaration.contentFingerprint.toLowerCase() === songContentHash.toLowerCase();
+
+    res.json({
+      cid,
+      songContentHash,
+      declarationFingerprint: declaration.contentFingerprint || null,
+      match: fingerprintMatch,
+      creator: declaration.creator || null,
+      verifiedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    if (error.code === "ECONNABORTED" || error.response?.status === 504) {
+      return res.status(504).json({ error: "IPFS gateway timeout" });
+    }
+    if (error.response?.status === 404) {
+      return res.status(404).json({ error: "Declaration not found on IPFS", cid: req.body.cid });
+    }
+    next(error);
+  }
+});
+
 module.exports = router;

@@ -40,6 +40,7 @@ contract SongRegistry is ISongRegistry, AccessControl, ReentrancyGuard, Pausable
     error SongNotActive();
     error SongAlreadyVerified();
     error EmptyMetadataURI();
+    error EmptyDeclarationCID();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // Constructor
@@ -91,7 +92,9 @@ contract SongRegistry is ISongRegistry, AccessControl, ReentrancyGuard, Pausable
             contentHash: contentHash,
             registeredAt: block.timestamp,
             verified: false,
-            active: true
+            active: true,
+            o8DeclarationHash: bytes32(0),
+            o8DeclarationCID: ""
         });
 
         _isrcToSongId[isrc] = songId;
@@ -153,6 +156,47 @@ contract SongRegistry is ISongRegistry, AccessControl, ReentrancyGuard, Pausable
 
         song.metadataURI = newMetadataURI;
         emit MetadataUpdated(songId, newMetadataURI);
+    }
+
+    /**
+     * @notice Link an o8 provenance declaration to a song
+     * @param songId The song to link the declaration to
+     * @param declarationCID IPFS CID of the o8 declaration
+     * @param declarationHash Hash of the o8 declaration content
+     */
+    function linkO8Declaration(
+        uint256 songId,
+        string calldata declarationCID,
+        bytes32 declarationHash
+    ) external override {
+        Song storage song = _songs[songId];
+        if (song.songId == 0) revert SongNotFound();
+
+        if (msg.sender != song.primaryCreator && !hasRole(OPERATOR_ROLE, msg.sender)) {
+            revert NotSongOwner();
+        }
+
+        if (bytes(declarationCID).length == 0) revert EmptyDeclarationCID();
+
+        song.o8DeclarationHash = declarationHash;
+        song.o8DeclarationCID = declarationCID;
+
+        emit O8DeclarationLinked(songId, declarationHash, declarationCID);
+    }
+
+    /**
+     * @notice Get the o8 declaration linked to a song
+     * @param songId The song to query
+     * @return declarationCID IPFS CID of the o8 declaration
+     * @return declarationHash Hash of the o8 declaration content
+     */
+    function getO8Declaration(uint256 songId) external view override returns (
+        string memory declarationCID,
+        bytes32 declarationHash
+    ) {
+        if (_songs[songId].songId == 0) revert SongNotFound();
+        Song storage song = _songs[songId];
+        return (song.o8DeclarationCID, song.o8DeclarationHash);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
