@@ -66,13 +66,6 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-[#1a1a1a]">
-          <ConnectButton
-            chainStatus="none"
-            showBalance={false}
-            accountStatus="avatar"
-          />
-        </div>
       </aside>
 
       {/* Mobile Top Bar */}

@@ -72,65 +72,43 @@ export default function MapPage() {
           </div>
 
           {/* Song Filter */}
-          <div className="p-4 border-b border-[#1a1a1a]">
-            <p className="overline mb-3">Song</p>
-            <div className="space-y-0.5">
-              <button
-                onClick={() => setSelectedSong(null)}
-                className={cn(
-                  'w-full text-left px-3 py-1.5 text-body-sm transition-all',
-                  !selectedSong
-                    ? 'bg-accent text-black'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                )}
-              >
-                All songs
-              </button>
-              {aggregateBySong(MOCK_CITY_FLOWS).map((song) => (
-                <button
-                  key={song.songId}
-                  onClick={() => setSelectedSong(song.songId === selectedSong ? null : song.songId)}
-                  className={cn(
-                    'w-full text-left px-3 py-1.5 text-body-sm transition-all flex justify-between',
-                    selectedSong === song.songId
-                      ? 'bg-accent text-black'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  )}
-                >
-                  <span className="truncate">{song.title}</span>
-                  <span className="font-mono ml-2">{(song.totalAmount / 1000).toFixed(0)}K USDC</span>
-                </button>
-              ))}
+          <div className="px-4 py-3 border-b border-[#1a1a1a]">
+            <div className="flex items-center justify-between mb-2">
+              <p className="overline">Song</p>
+              {selectedSong && (
+                <button onClick={() => setSelectedSong(null)} className="text-[0.6rem] text-gray-600 hover:text-gray-400 transition-colors">Clear</button>
+              )}
             </div>
+            <select
+              value={selectedSong ?? ''}
+              onChange={(e) => setSelectedSong(e.target.value ? Number(e.target.value) : null)}
+              className="w-full bg-transparent font-sans text-caption text-gray-300 border-b border-[#1a1a1a] focus:border-accent outline-none py-1 appearance-none cursor-pointer"
+            >
+              <option value="" className="bg-black">All songs</option>
+              {aggregateBySong(MOCK_CITY_FLOWS).map((song) => (
+                <option key={song.songId} value={song.songId} className="bg-black">
+                  {song.title} — {(song.totalAmount / 1000).toFixed(0)}K
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Source Filter */}
-          <div className="p-4 border-b border-[#1a1a1a]">
-            <p className="overline mb-3">Source</p>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => setSelectedSource(null)}
-                className={cn(
-                  'px-2.5 py-1 text-body-sm transition-all',
-                  !selectedSource
-                    ? 'bg-accent text-black'
-                    : 'bg-[#0a0a0a] border border-[#1a1a1a] text-gray-400 hover:text-white'
-                )}
-              >
-                All
-              </button>
-              {['spotify', 'apple', 'youtube', 'deezer', 'other'].map((source) => (
+          <div className="px-4 py-3 border-b border-[#1a1a1a]">
+            <p className="overline mb-2">Source</p>
+            <div className="grid grid-cols-3 gap-px bg-[#111]">
+              {[{ key: null, label: 'All' }, ...['Spotify', 'Apple', 'YouTube', 'Deezer', 'Other'].map(s => ({ key: s.toLowerCase(), label: s }))].map((source) => (
                 <button
-                  key={source}
-                  onClick={() => setSelectedSource(source === selectedSource ? null : source)}
+                  key={source.label}
+                  onClick={() => setSelectedSource(source.key === selectedSource ? null : source.key)}
                   className={cn(
-                    'px-2.5 py-1 text-body-sm transition-all capitalize',
-                    selectedSource === source
-                      ? 'bg-accent text-black'
-                      : 'bg-[#0a0a0a] border border-[#1a1a1a] text-gray-400 hover:text-white'
+                    'bg-black px-2 py-1.5 font-sans text-[0.65rem] tracking-wider uppercase transition-colors',
+                    (source.key === null ? !selectedSource : selectedSource === source.key)
+                      ? 'text-accent'
+                      : 'text-gray-600 hover:text-gray-400'
                   )}
                 >
-                  {source === 'apple' ? 'Apple' : source}
+                  {source.label}
                 </button>
               ))}
             </div>

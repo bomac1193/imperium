@@ -14,6 +14,14 @@ function normalizeDelta(d: number): number {
   return ((d % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
 }
 
+/** Convert geographic lat/lng to cobe phi/theta (from cobe docs) */
+function locationToAngles(lat: number, lng: number): [number, number] {
+  return [
+    Math.PI - ((lng * Math.PI) / 180 - Math.PI / 2),
+    (lat * Math.PI) / 180,
+  ];
+}
+
 export default function RoyaltyGlobe({
   flows,
   selectedCity,
@@ -22,9 +30,10 @@ export default function RoyaltyGlobe({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointerInteracting = useRef<number | null>(null);
   const pointerInteractionMovement = useRef(0);
-  const phiRef = useRef(0);
+  const phiRef = useRef(Math.PI);
   const thetaRef = useRef(0.25);
   const focusRef = useRef<{ phi: number; theta: number } | null>(null);
+  const lockedRef = useRef(false);
   const globeRef = useRef<ReturnType<typeof createGlobe> | null>(null);
 
   const cityAggregates = useMemo(() => aggregateByCity(flows), [flows]);
@@ -46,16 +55,15 @@ export default function RoyaltyGlobe({
   useEffect(() => {
     if (!selectedCity) {
       focusRef.current = null;
+      lockedRef.current = false;
       return;
     }
     const city = cityAggregates.find((c) => c.city === selectedCity);
     if (!city) return;
 
-    // cobe: phi = longitude in radians, theta = latitude in radians
-    focusRef.current = {
-      phi: (city.lng * Math.PI) / 180,
-      theta: (city.lat * Math.PI) / 180,
-    };
+    lockedRef.current = false;
+    const [phi, theta] = locationToAngles(city.lat, city.lng);
+    focusRef.current = { phi, theta };
   }, [selectedCity, cityAggregates]);
 
   // Create and manage the globe
@@ -76,7 +84,7 @@ export default function RoyaltyGlobe({
       devicePixelRatio: 2,
       width: width * 2,
       height: width * 2,
-      phi: 0,
+      phi: Math.PI,
       theta: 0.25,
       dark: 1,
       diffuse: 1.2,
@@ -90,17 +98,27 @@ export default function RoyaltyGlobe({
         const target = focusRef.current;
 
         if (target && !pointerInteracting.current) {
-          // Shortest-path rotation toward target
-          const dPhi = normalizeDelta(target.phi - phiRef.current);
-          const dTheta = target.theta - thetaRef.current;
+          if (lockedRef.current) {
+            // Already arrived — hold position
+            phiRef.current = target.phi;
+            thetaRef.current = target.theta;
+          } else {
+            // Animate toward target
+            const dPhi = normalizeDelta(target.phi - phiRef.current);
+            const dTheta = target.theta - thetaRef.current;
 
-          phiRef.current += dPhi * 0.08;
-          thetaRef.current += dTheta * 0.08;
+            phiRef.current += dPhi * 0.08;
+            thetaRef.current += dTheta * 0.08;
 
-          if (Math.abs(dPhi) < 0.005 && Math.abs(dTheta) < 0.005) {
-            focusRef.current = null;
+            if (Math.abs(dPhi) < 0.005 && Math.abs(dTheta) < 0.005) {
+              // Snap to exact position and lock
+              phiRef.current = target.phi;
+              thetaRef.current = target.theta;
+              lockedRef.current = true;
+            }
           }
         } else if (!pointerInteracting.current && !target) {
+          // Idle spin — only when no city selected
           phiRef.current += 0.003;
         }
 
@@ -135,6 +153,7 @@ export default function RoyaltyGlobe({
           pointerInteracting.current =
             e.clientX - pointerInteractionMovement.current;
           focusRef.current = null;
+          lockedRef.current = false;
         }}
         onPointerUp={() => {
           pointerInteracting.current = null;
@@ -151,8 +170,7 @@ export default function RoyaltyGlobe({
         }}
         style={{
           width: '100%',
-          height: '100%',
-          maxWidth: '100%',
+          maxWidth: '560px',
           aspectRatio: '1',
           cursor: 'grab',
           contain: 'layout paint size',
