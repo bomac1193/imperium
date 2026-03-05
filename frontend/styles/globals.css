@@ -1,142 +1,291 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* Font Faces                                                                 */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Canela';
+  src: url('/fonts/canela/Canela-Light-Trial.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Canela';
+  src: url('/fonts/canela/Canela-Regular-Trial.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Canela';
+  src: url('/fonts/canela/Canela-Medium-Trial.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sohne';
+  src: url('/fonts/sohne/sohne-light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sohne';
+  src: url('/fonts/sohne/sohne-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sohne';
+  src: url('/fonts/sohne/sohne-medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sohne';
+  src: url('/fonts/sohne/sohne-semibold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sohne';
+  src: url('/fonts/sohne/sohne-bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sohne';
+  src: url('/fonts/sohne/sohne-black.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sohne Mono';
+  src: url('/fonts/sohne-mono/sohne-mono-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sohne Mono';
+  src: url('/fonts/sohne-mono/sohne-mono-semibold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* Tailwind Directives                                                        */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* CSS Variables                                                              */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  --imperium-gold: #FFD700;
-  --imperium-dark: #0A0A0F;
-  --imperium-purple: #8B5CF6;
-  --imperium-blue: #3B82F6;
+  --accent: #F5F0E8;
+  --bg-primary: #000000;
+  --bg-card: #0a0a0a;
+  --border: #1a1a1a;
+  --text-primary: #ffffff;
+  --text-secondary: #a3a3a3;
+  --text-muted: #525252;
 }
 
-body {
-  @apply bg-imperium-dark text-white;
-  font-family: 'Inter', system-ui, sans-serif;
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* Base Styles                                                                */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  body {
+    @apply bg-black text-white font-sans antialiased;
+    font-weight: 300;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+    font-weight: 400;
+  }
+
+  h1 { @apply text-display-md; }
+  h2 { @apply text-heading-lg; }
+  h3 { @apply text-heading-md; }
+  h4 { @apply text-heading-sm; }
+
+  ::selection {
+    background: rgba(245, 240, 232, 0.2);
+  }
 }
 
-/* Custom scrollbar */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* Scrollbar                                                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-imperium-darker;
+  background: #000;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-imperium-gold/30 rounded-full;
+  background: #1a1a1a;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-imperium-gold/50;
+  background: #262626;
 }
 
-/* Glowing text effect */
-.text-glow {
-  text-shadow: 0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(255, 215, 0, 0.3);
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* Component Classes                                                          */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* Cards */
+  .card {
+    @apply bg-[#0a0a0a] border border-[#1a1a1a];
+  }
+
+  .card-elevated {
+    @apply bg-[#0a0a0a] border border-[#1a1a1a];
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .card-outlined {
+    @apply bg-transparent border border-[#1a1a1a];
+  }
+
+  .card-accent {
+    @apply bg-[#0a0a0a] border border-[#1a1a1a] border-l-2 border-l-accent;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply bg-white text-black font-sans font-medium px-6 py-3
+           transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-accent {
+    @apply bg-accent text-black font-sans font-medium px-6 py-3
+           transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-white font-sans font-medium px-6 py-3
+           transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-outline {
+    @apply bg-transparent text-white font-sans font-medium px-6 py-3 border border-[#1a1a1a]
+           transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply bg-error text-white font-sans font-medium px-6 py-3
+           transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full bg-transparent border-b border-[#1a1a1a] py-3
+           text-white font-sans font-light
+           outline-none transition-colors
+           placeholder:text-gray-600
+           focus:border-accent;
+  }
+
+  .input-boxed {
+    @apply w-full bg-[#0a0a0a] border border-[#1a1a1a] px-4 py-3
+           text-white font-sans font-light
+           outline-none transition-colors
+           placeholder:text-gray-600
+           focus:border-accent;
+  }
+
+  /* Overline */
+  .overline {
+    @apply text-overline uppercase tracking-widest text-gray-400 font-sans font-medium;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 text-caption font-sans font-medium uppercase tracking-wider;
+  }
+
+  .badge-default {
+    @apply badge bg-white/10 text-white;
+  }
+
+  .badge-accent {
+    @apply badge bg-accent/15 text-accent;
+  }
+
+  .badge-success {
+    @apply badge bg-success/15 text-success;
+  }
+
+  .badge-warning {
+    @apply badge bg-warning/15 text-warning;
+  }
+
+  .badge-error {
+    @apply badge bg-error/15 text-error;
+  }
+
+  .badge-claimed {
+    @apply badge bg-success/15 text-success;
+  }
+
+  .badge-pending {
+    @apply badge bg-warning/15 text-warning;
+  }
+
+  .badge-registered {
+    @apply badge bg-accent/15 text-accent;
+  }
+
+  /* Nav items */
+  .nav-item {
+    @apply text-overline uppercase tracking-widest text-gray-400 font-sans font-medium
+           transition-colors hover:text-white;
+  }
+
+  .nav-item-active {
+    @apply text-overline uppercase tracking-widest text-accent font-sans font-medium;
+  }
 }
 
-/* Card hover effect */
-.card-hover {
-  @apply transition-all duration-300;
-}
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* Live Indicator                                                             */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
-.card-hover:hover {
-  @apply transform -translate-y-1;
-  box-shadow: 0 10px 40px rgba(255, 215, 0, 0.1);
-}
-
-/* Gradient border */
-.gradient-border {
-  position: relative;
-  background: linear-gradient(#0A0A0F, #0A0A0F) padding-box,
-              linear-gradient(135deg, #FFD700, #8B5CF6) border-box;
-  border: 2px solid transparent;
-}
-
-/* Button glow animation */
-.btn-glow {
-  @apply relative overflow-hidden;
-}
-
-.btn-glow::before {
-  content: '';
-  @apply absolute inset-0 opacity-0 transition-opacity duration-300;
-  background: radial-gradient(circle at center, rgba(255, 215, 0, 0.3), transparent 70%);
-}
-
-.btn-glow:hover::before {
-  @apply opacity-100;
-}
-
-/* Mapbox overrides */
-.mapboxgl-map {
-  font-family: inherit;
-}
-
-.mapboxgl-ctrl-logo,
-.mapboxgl-ctrl-attrib {
-  display: none !important;
-}
-
-/* Pulse animation for live data */
 @keyframes live-pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .live-indicator {
   animation: live-pulse 2s ease-in-out infinite;
-}
-
-/* Stats counter animation */
-.counter-animate {
-  @apply tabular-nums;
-}
-
-/* Hero gradient mesh */
-.mesh-gradient {
-  background:
-    radial-gradient(at 40% 20%, rgba(139, 92, 246, 0.3) 0px, transparent 50%),
-    radial-gradient(at 80% 0%, rgba(255, 215, 0, 0.2) 0px, transparent 50%),
-    radial-gradient(at 0% 50%, rgba(59, 130, 246, 0.2) 0px, transparent 50%),
-    radial-gradient(at 80% 50%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, rgba(255, 215, 0, 0.1) 0px, transparent 50%);
-}
-
-/* Glass effect */
-.glass {
-  @apply bg-white/5 backdrop-blur-xl border border-white/10;
-}
-
-/* Table styles */
-.table-imperium th {
-  @apply text-imperium-gold/80 font-medium text-left px-4 py-3 border-b border-white/10;
-}
-
-.table-imperium td {
-  @apply px-4 py-3 border-b border-white/5;
-}
-
-.table-imperium tr:hover {
-  @apply bg-white/5;
-}
-
-/* Form inputs */
-.input-imperium {
-  @apply w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg
-         focus:border-imperium-gold/50 focus:ring-1 focus:ring-imperium-gold/50
-         outline-none transition-all placeholder-white/30;
-}
-
-/* Loading skeleton */
-.skeleton {
-  @apply animate-pulse bg-white/10 rounded;
 }

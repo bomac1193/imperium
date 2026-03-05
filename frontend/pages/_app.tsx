@@ -13,8 +13,8 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <>
       <Head>
-        <title>Imperium | Own It. Break the Chain.</title>
-        <meta name="description" content="Music Royalty Platform - Take control of your music earnings" />
+        <title>Imperium</title>
+        <meta name="description" content="On-chain royalty settlement. Transparent. Instant." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -22,9 +22,9 @@ export default function App({ Component, pageProps }: AppProps) {
         <QueryClientProvider client={queryClient}>
           <RainbowKitProvider
             theme={darkTheme({
-              accentColor: '#FFD700',
-              accentColorForeground: '#0A0A0F',
-              borderRadius: 'medium',
+              accentColor: '#F5F0E8',
+              accentColorForeground: '#000000',
+              borderRadius: 'none',
               fontStack: 'system',
             })}
           >
