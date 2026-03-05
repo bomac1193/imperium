@@ -243,7 +243,7 @@ describe("Imperium Platform", function () {
 
       await expect(
         royaltySplit.connect(artist).updateSplit(1, artist.address, 5000)
-      ).to.be.revertedWithCustomError(royaltySplit, "SplitsLocked");
+      ).to.be.revertedWithCustomError(royaltySplit, "SplitsAlreadyLocked");
     });
   });
 
@@ -305,6 +305,134 @@ describe("Imperium Platform", function () {
 
       const artistBalanceAfter = await mockUsdc.balanceOf(artist.address);
       expect(artistBalanceAfter - artistBalanceBefore).to.equal(ethers.parseUnits("700", 6));
+    });
+
+    it("Should track per-song source earnings", async function () {
+      const amount1 = ethers.parseUnits("1000", 6);
+      const amount2 = ethers.parseUnits("500", 6);
+
+      await payoutModule.depositRoyalty(1, amount1, await mockUsdc.getAddress(), "streaming", "US");
+      await payoutModule.depositRoyalty(1, amount2, await mockUsdc.getAddress(), "live", "NG");
+
+      expect(await payoutModule.getSongSourceEarnings(1, "streaming")).to.equal(amount1);
+      expect(await payoutModule.getSongSourceEarnings(1, "live")).to.equal(amount2);
+      expect(await payoutModule.getTotalEarnings(1)).to.equal(amount1 + amount2);
+
+      // Global source earnings
+      expect(await payoutModule.getSourceEarnings("streaming")).to.equal(amount1);
+      expect(await payoutModule.getSourceEarnings("live")).to.equal(amount2);
+
+      // Region earnings
+      expect(await payoutModule.getRegionEarnings("US")).to.equal(amount1);
+      expect(await payoutModule.getRegionEarnings("NG")).to.equal(amount2);
+    });
+
+    it("Should batch deposit for multiple songs", async function () {
+      // Register a second song
+      await songRegistry.connect(artist).registerSong("USRC87654321", "Second Song", METADATA_URI, ethers.ZeroHash);
+      await royaltySplit.connect(artist).configureSplits(
+        2,
+        [artist.address, producer.address],
+        [6000, 4000],
+        ["artist", "producer"]
+      );
+
+      const amounts = [ethers.parseUnits("1000", 6), ethers.parseUnits("500", 6)];
+      const totalAmount = amounts[0] + amounts[1];
+
+      const tx = await payoutModule.batchDeposit(
+        [1, 2],
+        amounts,
+        await mockUsdc.getAddress(),
+        "streaming",
+        "US"
+      );
+
+      // Check both songs have earnings
+      expect(await payoutModule.getTotalEarnings(1)).to.equal(amounts[0]);
+      expect(await payoutModule.getTotalEarnings(2)).to.equal(amounts[1]);
+      expect(await payoutModule.getSongSourceEarnings(1, "streaming")).to.equal(amounts[0]);
+      expect(await payoutModule.getSongSourceEarnings(2, "streaming")).to.equal(amounts[1]);
+
+      // Check global totals
+      expect(await payoutModule.getSourceEarnings("streaming")).to.equal(totalAmount);
+      expect(await payoutModule.getRegionEarnings("US")).to.equal(totalAmount);
+    });
+
+    it("Should handle all revenue sources for a song", async function () {
+      const usdcAddr = await mockUsdc.getAddress();
+
+      // Realistic revenue scenario for one song over a quarter
+      const deposits = [
+        { amount: "3200", source: "streaming", region: "US" },   // Spotify, Apple, etc.
+        { amount: "1800", source: "streaming", region: "NG" },   // Boomplay, Audiomack
+        { amount: "2500", source: "live",      region: "NG" },   // Lagos show
+        { amount: "1500", source: "live",      region: "KE" },   // Nairobi festival
+        { amount: "5000", source: "sync",      region: "US" },   // TV placement
+        { amount: "800",  source: "tips",      region: "NG" },   // Oryx fan tips
+        { amount: "350",  source: "tips",      region: "KE" },   // More tips
+        { amount: "600",  source: "merch",     region: "US" },   // Merch store cut
+        { amount: "1200", source: "publishing", region: "GB" },  // Mechanical royalties
+        { amount: "450",  source: "radio",     region: "ZA" },   // Radio play via PRO
+      ];
+
+      let expectedTotal = 0n;
+      const sourceExpected = {};
+      const regionExpected = {};
+
+      for (const d of deposits) {
+        const amount = ethers.parseUnits(d.amount, 6);
+        expectedTotal += amount;
+        sourceExpected[d.source] = (sourceExpected[d.source] || 0n) + amount;
+        regionExpected[d.region] = (regionExpected[d.region] || 0n) + amount;
+
+        await payoutModule.depositRoyalty(1, amount, usdcAddr, d.source, d.region);
+      }
+
+      // Total earnings
+      expect(await payoutModule.getTotalEarnings(1)).to.equal(expectedTotal);
+
+      // Per-song source breakdown
+      expect(await payoutModule.getSongSourceEarnings(1, "streaming")).to.equal(sourceExpected["streaming"]);
+      expect(await payoutModule.getSongSourceEarnings(1, "live")).to.equal(sourceExpected["live"]);
+      expect(await payoutModule.getSongSourceEarnings(1, "sync")).to.equal(sourceExpected["sync"]);
+      expect(await payoutModule.getSongSourceEarnings(1, "tips")).to.equal(sourceExpected["tips"]);
+      expect(await payoutModule.getSongSourceEarnings(1, "merch")).to.equal(sourceExpected["merch"]);
+      expect(await payoutModule.getSongSourceEarnings(1, "publishing")).to.equal(sourceExpected["publishing"]);
+      expect(await payoutModule.getSongSourceEarnings(1, "radio")).to.equal(sourceExpected["radio"]);
+
+      // Region breakdown
+      expect(await payoutModule.getRegionEarnings("US")).to.equal(regionExpected["US"]);
+      expect(await payoutModule.getRegionEarnings("NG")).to.equal(regionExpected["NG"]);
+      expect(await payoutModule.getRegionEarnings("KE")).to.equal(regionExpected["KE"]);
+      expect(await payoutModule.getRegionEarnings("GB")).to.equal(regionExpected["GB"]);
+      expect(await payoutModule.getRegionEarnings("ZA")).to.equal(regionExpected["ZA"]);
+
+      // Distribute all payouts and verify splits
+      const payoutIds = await payoutModule.getSongPayouts(1);
+      expect(payoutIds.length).to.equal(10);
+
+      await payoutModule.batchDistribute([...payoutIds]);
+
+      // Artist gets 70%, producer gets 30%
+      const artistBalance = await payoutModule.getClaimableBalance(artist.address, usdcAddr);
+      const producerBalance = await payoutModule.getClaimableBalance(producer.address, usdcAddr);
+
+      // 17,400 USDC total → artist 12,180, producer 5,220
+      expect(artistBalance).to.equal(expectedTotal * 7000n / 10000n);
+      expect(producerBalance).to.equal(expectedTotal * 3000n / 10000n);
+    });
+
+    it("Should reject batch deposit with mismatched arrays", async function () {
+      await expect(
+        payoutModule.batchDeposit(
+          [1],
+          [ethers.parseUnits("100", 6), ethers.parseUnits("200", 6)],
+          await mockUsdc.getAddress(),
+          "streaming",
+          "US"
+        )
+      ).to.be.revertedWithCustomError(payoutModule, "ArrayLengthMismatch");
     });
   });
 

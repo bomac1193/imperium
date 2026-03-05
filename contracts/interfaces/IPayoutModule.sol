@@ -58,16 +58,27 @@ interface IPayoutModule {
         address token,
         string calldata source,
         string calldata region
-    ) external returns (uint256 payoutId);
+    ) external payable returns (uint256 payoutId);
 
     function distributeRoyalty(uint256 payoutId) external;
     function batchDistribute(uint256[] calldata payoutIds) external;
     function claimRoyalties(address token) external;
     function claimAllRoyalties() external;
 
+    function batchDeposit(
+        uint256[] calldata songIds,
+        uint256[] calldata amounts,
+        address token,
+        string calldata source,
+        string calldata region
+    ) external payable returns (uint256[] memory payoutIds);
+
     function getClaimableBalance(address recipient, address token) external view returns (uint256);
     function getAllClaimableBalances(address recipient) external view returns (ClaimableBalance[] memory);
     function getPayout(uint256 payoutId) external view returns (Payout memory);
     function getSongPayouts(uint256 songId) external view returns (uint256[] memory);
     function getTotalEarnings(uint256 songId) external view returns (uint256);
+    function getSongSourceEarnings(uint256 songId, string calldata source) external view returns (uint256);
+    function getSourceEarnings(string calldata source) external view returns (uint256);
+    function getRegionEarnings(string calldata region) external view returns (uint256);
 }

@@ -1,13 +1,17 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
-import { X } from 'lucide-react';
+import { X, ChevronDown } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import {
   MOCK_CITY_FLOWS,
+  MOCK_SOURCES,
   aggregateByCity,
   aggregateBySong,
+  aggregateByCategory,
+  REVENUE_CATEGORIES,
   type CityFlow,
+  type RevenueCategory,
 } from '@/lib/store';
 import { cn } from '@/lib/utils';
 
@@ -21,25 +25,31 @@ const RoyaltyGlobe = dynamic(() => import('@/components/RoyaltyGlobe'), {
 });
 
 export default function MapPage() {
+  const [selectedCategory, setSelectedCategory] = useState<RevenueCategory | null>(null);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [selectedSong, setSelectedSong] = useState<number | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<RevenueCategory | null>(null);
 
   // Filter flows
   const filteredFlows = useMemo(() => {
     let flows = MOCK_CITY_FLOWS;
     if (selectedSource) {
       flows = flows.filter((f) => f.source === selectedSource);
+    } else if (selectedCategory) {
+      flows = flows.filter((f) => f.sourceCategory === selectedCategory);
     }
     if (selectedSong) {
       flows = flows.filter((f) => f.songId === selectedSong);
     }
     return flows;
-  }, [selectedSource, selectedSong]);
+  }, [selectedCategory, selectedSource, selectedSong]);
 
   const cityAggregates = useMemo(() => aggregateByCity(filteredFlows), [filteredFlows]);
+  const categoryStats = useMemo(() => aggregateByCategory(filteredFlows), [filteredFlows]);
   const totalAmount = filteredFlows.reduce((sum, f) => sum + f.amount, 0);
-  const totalStreams = filteredFlows.reduce((sum, f) => sum + f.streams, 0);
+  const totalStreams = filteredFlows.filter((f) => f.sourceCategory === 'streaming').reduce((sum, f) => sum + f.streams, 0);
+  const sourceCount = new Set(filteredFlows.map((f) => f.sourceCategory)).size;
   const cityCount = cityAggregates.length;
 
   // Selected city detail
@@ -66,7 +76,7 @@ export default function MapPage() {
               {totalAmount.toLocaleString()} USDC
             </div>
             <div className="flex gap-4 mt-2 text-body-sm text-gray-500">
-              <span>{(totalStreams / 1000000).toFixed(1)}M streams</span>
+              <span>{sourceCount} sources</span>
               <span>{cityCount} cities</span>
             </div>
           </div>
@@ -82,35 +92,103 @@ export default function MapPage() {
             <select
               value={selectedSong ?? ''}
               onChange={(e) => setSelectedSong(e.target.value ? Number(e.target.value) : null)}
-              className="w-full bg-transparent font-sans text-caption text-gray-300 border-b border-[#1a1a1a] focus:border-accent outline-none py-1 appearance-none cursor-pointer"
+              className="w-full bg-transparent font-sans text-caption text-gray-300 border-b border-[#1a1a1a] focus:border-accent outline-none py-1.5 px-1 appearance-none cursor-pointer"
             >
-              <option value="" className="bg-black">All songs</option>
+              <option value="" className="bg-black py-1">All songs</option>
               {aggregateBySong(MOCK_CITY_FLOWS).map((song) => (
-                <option key={song.songId} value={song.songId} className="bg-black">
-                  {song.title} — {(song.totalAmount / 1000).toFixed(0)}K
+                <option key={song.songId} value={song.songId} className="bg-black py-1">
+                  {song.title}  —  {(song.totalAmount / 1000).toFixed(0)}K
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Source Filter */}
+          {/* Revenue Source Filter */}
           <div className="px-4 py-3 border-b border-[#1a1a1a]">
-            <p className="overline mb-2">Source</p>
-            <div className="grid grid-cols-3 gap-px bg-[#111]">
-              {[{ key: null, label: 'All' }, ...['Spotify', 'Apple', 'YouTube', 'Deezer', 'Other'].map(s => ({ key: s.toLowerCase(), label: s }))].map((source) => (
-                <button
-                  key={source.label}
-                  onClick={() => setSelectedSource(source.key === selectedSource ? null : source.key)}
-                  className={cn(
-                    'bg-black px-2 py-1.5 font-sans text-[0.65rem] tracking-wider uppercase transition-colors',
-                    (source.key === null ? !selectedSource : selectedSource === source.key)
-                      ? 'text-accent'
-                      : 'text-gray-600 hover:text-gray-400'
-                  )}
-                >
-                  {source.label}
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-2">
+              <p className="overline">Revenue</p>
+              {(selectedCategory || selectedSource) && (
+                <button onClick={() => { setSelectedCategory(null); setSelectedSource(null); }} className="text-[0.6rem] text-gray-600 hover:text-gray-400 transition-colors">Clear</button>
+              )}
+            </div>
+            <div className="space-y-px">
+              {categoryStats.map((cat) => {
+                const isExpanded = expandedCategory === cat.category;
+                const isActive = selectedCategory === cat.category || cat.subSources.some((s) => s.name === selectedSource);
+
+                return (
+                  <div key={cat.category}>
+                    {/* Row — click to expand/collapse only */}
+                    <button
+                      onClick={() => setExpandedCategory(isExpanded ? null : cat.category)}
+                      className={cn(
+                        'w-full flex items-center justify-between px-2 py-2 transition-colors group',
+                        isActive ? 'text-accent' : 'text-gray-500 hover:text-gray-300'
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <ChevronDown className={cn(
+                          'w-3 h-3 transition-transform text-gray-600 group-hover:text-gray-400',
+                          isExpanded && 'rotate-180'
+                        )} />
+                        <span className="text-[0.65rem] tracking-wider uppercase font-sans">{cat.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[0.6rem] font-mono">{(cat.amount / 1000).toFixed(0)}K</span>
+                        <span className="text-[0.55rem] text-gray-600">{cat.percentage}%</span>
+                      </div>
+                    </button>
+
+                    {/* Expanded sub-sources */}
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="pl-5 pr-2 pb-2 space-y-px">
+                            {/* "All [category]" filter */}
+                            <button
+                              onClick={() => {
+                                setSelectedSource(null);
+                                setSelectedCategory(selectedCategory === cat.category ? null : cat.category);
+                              }}
+                              className={cn(
+                                'w-full flex justify-between px-2 py-1.5 text-[0.6rem] transition-colors border-b border-[#1a1a1a] mb-1',
+                                selectedCategory === cat.category ? 'text-accent' : 'text-gray-500 hover:text-gray-300'
+                              )}
+                            >
+                              <span>All {cat.label.toLowerCase()}</span>
+                              <span className="font-mono">{(cat.amount / 1000).toFixed(0)}K</span>
+                            </button>
+
+                            {/* Individual sub-sources */}
+                            {cat.subSources.map((sub) => (
+                              <button
+                                key={sub.name}
+                                onClick={() => {
+                                  setSelectedCategory(null);
+                                  setSelectedSource(selectedSource === sub.name ? null : sub.name);
+                                }}
+                                className={cn(
+                                  'w-full flex justify-between px-2 py-1 text-[0.6rem] transition-colors',
+                                  selectedSource === sub.name ? 'text-accent' : 'text-gray-600 hover:text-gray-400'
+                                )}
+                              >
+                                <span className="capitalize">{sub.name}</span>
+                                <span className="font-mono">{(sub.amount / 1000).toFixed(0)}K</span>
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

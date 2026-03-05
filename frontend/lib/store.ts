@@ -127,6 +127,8 @@ export const useUserPreferences = create<UserPreferences>()(
 // Mock Data for Development
 // ═══════════════════════════════════════════════════════════════════════════════
 
+export type RevenueCategory = 'streaming' | 'live' | 'sync' | 'tips' | 'merch' | 'publishing' | 'radio';
+
 export interface CityFlow {
   id: string;
   city: string;
@@ -135,94 +137,182 @@ export interface CityFlow {
   lat: number;
   lng: number;
   amount: number;
-  streams: number;
-  listeners: number;
-  source: string;
+  streams: number;        // plays for streaming, attendees for live, 0 for others
+  listeners: number;      // unique listeners/attendees
+  source: string;         // specific source (e.g., 'spotify', 'afro nation festival')
+  sourceCategory: RevenueCategory;
   songId: number;
   songTitle: string;
-  growth: number;       // % change from previous period
+  growth: number;         // % change from previous period
   timestamp: number;
 }
 
-// ── City-level royalty flows (70+ cities worldwide) ──────────────────────────
+// ── Source → category mapping ────────────────────────────────────────────────
+export const SOURCE_CATEGORIES: Record<string, RevenueCategory> = {
+  spotify: 'streaming', apple: 'streaming', youtube: 'streaming', deezer: 'streaming',
+  boomplay: 'streaming', audiomack: 'streaming', tidal: 'streaming',
+  live: 'live', sync: 'sync', tips: 'tips', merch: 'merch',
+  publishing: 'publishing', radio: 'radio',
+};
+
+export const REVENUE_CATEGORIES: { key: RevenueCategory; label: string }[] = [
+  { key: 'streaming', label: 'Streaming' },
+  { key: 'live', label: 'Live' },
+  { key: 'sync', label: 'Sync' },
+  { key: 'tips', label: 'Tips' },
+  { key: 'merch', label: 'Merch' },
+  { key: 'publishing', label: 'Publishing' },
+  { key: 'radio', label: 'Radio' },
+];
+
+// ── City-level royalty flows ─────────────────────────────────────────────────
 const now = Date.now();
 export const MOCK_CITY_FLOWS: CityFlow[] = [
-  // ── North America ──
-  { id: 'nyc-1', city: 'New York', region: 'US', country: 'United States', lat: 40.7128, lng: -74.006, amount: 18200, streams: 2420000, listeners: 890000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 14.2, timestamp: now },
-  { id: 'nyc-2', city: 'New York', region: 'US', country: 'United States', lat: 40.7128, lng: -74.006, amount: 12800, streams: 1680000, listeners: 620000, source: 'apple', songId: 2, songTitle: 'No Masters', growth: 8.5, timestamp: now },
-  { id: 'la-1', city: 'Los Angeles', region: 'US', country: 'United States', lat: 34.0522, lng: -118.2437, amount: 15600, streams: 2080000, listeners: 760000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 11.3, timestamp: now },
-  { id: 'la-2', city: 'Los Angeles', region: 'US', country: 'United States', lat: 34.0522, lng: -118.2437, amount: 9400, streams: 1240000, listeners: 480000, source: 'youtube', songId: 3, songTitle: 'Take the Throne', growth: 22.1, timestamp: now },
-  { id: 'chi-1', city: 'Chicago', region: 'US', country: 'United States', lat: 41.8781, lng: -87.6298, amount: 7800, streams: 1040000, listeners: 380000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 6.8, timestamp: now },
-  { id: 'atl-1', city: 'Atlanta', region: 'US', country: 'United States', lat: 33.749, lng: -84.388, amount: 9200, streams: 1220000, listeners: 450000, source: 'spotify', songId: 3, songTitle: 'Take the Throne', growth: 31.5, timestamp: now },
-  { id: 'mia-1', city: 'Miami', region: 'US', country: 'United States', lat: 25.7617, lng: -80.1918, amount: 6400, streams: 850000, listeners: 310000, source: 'apple', songId: 2, songTitle: 'No Masters', growth: 18.4, timestamp: now },
-  { id: 'hou-1', city: 'Houston', region: 'US', country: 'United States', lat: 29.7604, lng: -95.3698, amount: 5100, streams: 680000, listeners: 250000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 9.2, timestamp: now },
-  { id: 'sf-1', city: 'San Francisco', region: 'US', country: 'United States', lat: 37.7749, lng: -122.4194, amount: 4800, streams: 640000, listeners: 230000, source: 'apple', songId: 2, songTitle: 'No Masters', growth: 5.6, timestamp: now },
-  { id: 'det-1', city: 'Detroit', region: 'US', country: 'United States', lat: 42.3314, lng: -83.0458, amount: 3200, streams: 420000, listeners: 155000, source: 'spotify', songId: 3, songTitle: 'Take the Throne', growth: 42.1, timestamp: now },
-  { id: 'tor-1', city: 'Toronto', region: 'CA', country: 'Canada', lat: 43.6532, lng: -79.3832, amount: 8400, streams: 1120000, listeners: 410000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 12.7, timestamp: now },
-  { id: 'van-1', city: 'Vancouver', region: 'CA', country: 'Canada', lat: 49.2827, lng: -123.1207, amount: 3600, streams: 480000, listeners: 175000, source: 'apple', songId: 2, songTitle: 'No Masters', growth: 7.3, timestamp: now },
-  { id: 'mex-1', city: 'Mexico City', region: 'MX', country: 'Mexico', lat: 19.4326, lng: -99.1332, amount: 4800, streams: 640000, listeners: 235000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 28.9, timestamp: now },
+  // ── North America — Streaming ──
+  { id: 'nyc-1', city: 'New York', region: 'US', country: 'United States', lat: 40.7128, lng: -74.006, amount: 18200, streams: 2420000, listeners: 890000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 14.2, timestamp: now },
+  { id: 'nyc-2', city: 'New York', region: 'US', country: 'United States', lat: 40.7128, lng: -74.006, amount: 12800, streams: 1680000, listeners: 620000, source: 'apple', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 8.5, timestamp: now },
+  { id: 'la-1', city: 'Los Angeles', region: 'US', country: 'United States', lat: 34.0522, lng: -118.2437, amount: 15600, streams: 2080000, listeners: 760000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 11.3, timestamp: now },
+  { id: 'la-2', city: 'Los Angeles', region: 'US', country: 'United States', lat: 34.0522, lng: -118.2437, amount: 9400, streams: 1240000, listeners: 480000, source: 'youtube', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 22.1, timestamp: now },
+  { id: 'chi-1', city: 'Chicago', region: 'US', country: 'United States', lat: 41.8781, lng: -87.6298, amount: 7800, streams: 1040000, listeners: 380000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 6.8, timestamp: now },
+  { id: 'atl-1', city: 'Atlanta', region: 'US', country: 'United States', lat: 33.749, lng: -84.388, amount: 9200, streams: 1220000, listeners: 450000, source: 'spotify', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 31.5, timestamp: now },
+  { id: 'mia-1', city: 'Miami', region: 'US', country: 'United States', lat: 25.7617, lng: -80.1918, amount: 6400, streams: 850000, listeners: 310000, source: 'apple', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 18.4, timestamp: now },
+  { id: 'hou-1', city: 'Houston', region: 'US', country: 'United States', lat: 29.7604, lng: -95.3698, amount: 5100, streams: 680000, listeners: 250000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 9.2, timestamp: now },
+  { id: 'sf-1', city: 'San Francisco', region: 'US', country: 'United States', lat: 37.7749, lng: -122.4194, amount: 4800, streams: 640000, listeners: 230000, source: 'apple', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 5.6, timestamp: now },
+  { id: 'det-1', city: 'Detroit', region: 'US', country: 'United States', lat: 42.3314, lng: -83.0458, amount: 3200, streams: 420000, listeners: 155000, source: 'spotify', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 42.1, timestamp: now },
+  { id: 'tor-1', city: 'Toronto', region: 'CA', country: 'Canada', lat: 43.6532, lng: -79.3832, amount: 8400, streams: 1120000, listeners: 410000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 12.7, timestamp: now },
+  { id: 'van-1', city: 'Vancouver', region: 'CA', country: 'Canada', lat: 49.2827, lng: -123.1207, amount: 3600, streams: 480000, listeners: 175000, source: 'apple', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 7.3, timestamp: now },
+  { id: 'mex-1', city: 'Mexico City', region: 'MX', country: 'Mexico', lat: 19.4326, lng: -99.1332, amount: 4800, streams: 640000, listeners: 235000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 28.9, timestamp: now },
 
-  // ── Europe ──
-  { id: 'lon-1', city: 'London', region: 'GB', country: 'United Kingdom', lat: 51.5074, lng: -0.1278, amount: 14200, streams: 1890000, listeners: 695000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 10.1, timestamp: now },
-  { id: 'lon-2', city: 'London', region: 'GB', country: 'United Kingdom', lat: 51.5074, lng: -0.1278, amount: 8600, streams: 1140000, listeners: 420000, source: 'apple', songId: 3, songTitle: 'Take the Throne', growth: 15.8, timestamp: now },
-  { id: 'ber-1', city: 'Berlin', region: 'DE', country: 'Germany', lat: 52.52, lng: 13.405, amount: 7200, streams: 960000, listeners: 350000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 8.4, timestamp: now },
-  { id: 'ber-2', city: 'Berlin', region: 'DE', country: 'Germany', lat: 52.52, lng: 13.405, amount: 3800, streams: 500000, listeners: 185000, source: 'deezer', songId: 2, songTitle: 'No Masters', growth: 5.2, timestamp: now },
-  { id: 'par-1', city: 'Paris', region: 'FR', country: 'France', lat: 48.8566, lng: 2.3522, amount: 9400, streams: 1250000, listeners: 460000, source: 'deezer', songId: 1, songTitle: 'Break the Chain', growth: 13.6, timestamp: now },
-  { id: 'ams-1', city: 'Amsterdam', region: 'NL', country: 'Netherlands', lat: 52.3676, lng: 4.9041, amount: 4200, streams: 560000, listeners: 205000, source: 'spotify', songId: 2, songTitle: 'No Masters', growth: 9.1, timestamp: now },
-  { id: 'sto-1', city: 'Stockholm', region: 'SE', country: 'Sweden', lat: 59.3293, lng: 18.0686, amount: 5100, streams: 680000, listeners: 250000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 7.8, timestamp: now },
-  { id: 'mad-1', city: 'Madrid', region: 'ES', country: 'Spain', lat: 40.4168, lng: -3.7038, amount: 3600, streams: 480000, listeners: 176000, source: 'spotify', songId: 3, songTitle: 'Take the Throne', growth: 19.4, timestamp: now },
-  { id: 'bar-1', city: 'Barcelona', region: 'ES', country: 'Spain', lat: 41.3874, lng: 2.1686, amount: 2900, streams: 386000, listeners: 142000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 16.2, timestamp: now },
-  { id: 'mil-1', city: 'Milan', region: 'IT', country: 'Italy', lat: 45.4642, lng: 9.19, amount: 3100, streams: 412000, listeners: 151000, source: 'apple', songId: 2, songTitle: 'No Masters', growth: 11.5, timestamp: now },
-  { id: 'lis-1', city: 'Lisbon', region: 'PT', country: 'Portugal', lat: 38.7223, lng: -9.1393, amount: 1800, streams: 240000, listeners: 88000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 24.3, timestamp: now },
-  { id: 'war-1', city: 'Warsaw', region: 'PL', country: 'Poland', lat: 52.2297, lng: 21.0122, amount: 2400, streams: 320000, listeners: 117000, source: 'spotify', songId: 3, songTitle: 'Take the Throne', growth: 35.1, timestamp: now },
-  { id: 'cop-1', city: 'Copenhagen', region: 'DK', country: 'Denmark', lat: 55.6761, lng: 12.5683, amount: 2200, streams: 292000, listeners: 107000, source: 'spotify', songId: 2, songTitle: 'No Masters', growth: 6.4, timestamp: now },
+  // ── North America — Live ──
+  { id: 'nyc-live-1', city: 'New York', region: 'US', country: 'United States', lat: 40.7128, lng: -74.006, amount: 8500, streams: 0, listeners: 2200, source: 'live', sourceCategory: 'live', songId: 1, songTitle: 'Break the Chain', growth: 0, timestamp: now },
+  { id: 'la-live-1', city: 'Los Angeles', region: 'US', country: 'United States', lat: 34.0522, lng: -118.2437, amount: 6200, streams: 0, listeners: 1800, source: 'live', sourceCategory: 'live', songId: 1, songTitle: 'Break the Chain', growth: 0, timestamp: now },
+  { id: 'atl-live-1', city: 'Atlanta', region: 'US', country: 'United States', lat: 33.749, lng: -84.388, amount: 4800, streams: 0, listeners: 1400, source: 'live', sourceCategory: 'live', songId: 3, songTitle: 'Take the Throne', growth: 0, timestamp: now },
+  { id: 'mia-live-1', city: 'Miami', region: 'US', country: 'United States', lat: 25.7617, lng: -80.1918, amount: 3500, streams: 0, listeners: 950, source: 'live', sourceCategory: 'live', songId: 2, songTitle: 'No Masters', growth: 0, timestamp: now },
+  { id: 'tor-live-1', city: 'Toronto', region: 'CA', country: 'Canada', lat: 43.6532, lng: -79.3832, amount: 5100, streams: 0, listeners: 1500, source: 'live', sourceCategory: 'live', songId: 1, songTitle: 'Break the Chain', growth: 0, timestamp: now },
 
-  // ── Asia-Pacific ──
-  { id: 'tok-1', city: 'Tokyo', region: 'JP', country: 'Japan', lat: 35.6762, lng: 139.6503, amount: 8900, streams: 1180000, listeners: 435000, source: 'apple', songId: 1, songTitle: 'Break the Chain', growth: 4.2, timestamp: now },
-  { id: 'tok-2', city: 'Tokyo', region: 'JP', country: 'Japan', lat: 35.6762, lng: 139.6503, amount: 4100, streams: 546000, listeners: 200000, source: 'youtube', songId: 3, songTitle: 'Take the Throne', growth: 18.6, timestamp: now },
-  { id: 'seo-1', city: 'Seoul', region: 'KR', country: 'South Korea', lat: 37.5665, lng: 126.978, amount: 7400, streams: 984000, listeners: 362000, source: 'youtube', songId: 1, songTitle: 'Break the Chain', growth: 26.3, timestamp: now },
-  { id: 'seo-2', city: 'Seoul', region: 'KR', country: 'South Korea', lat: 37.5665, lng: 126.978, amount: 3200, streams: 426000, listeners: 156000, source: 'spotify', songId: 2, songTitle: 'No Masters', growth: 14.8, timestamp: now },
-  { id: 'mum-1', city: 'Mumbai', region: 'IN', country: 'India', lat: 19.076, lng: 72.8777, amount: 3400, streams: 452000, listeners: 166000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 45.2, timestamp: now },
-  { id: 'del-1', city: 'Delhi', region: 'IN', country: 'India', lat: 28.7041, lng: 77.1025, amount: 2800, streams: 372000, listeners: 137000, source: 'youtube', songId: 3, songTitle: 'Take the Throne', growth: 52.8, timestamp: now },
-  { id: 'ban-1', city: 'Bangkok', region: 'TH', country: 'Thailand', lat: 13.7563, lng: 100.5018, amount: 2100, streams: 280000, listeners: 103000, source: 'spotify', songId: 2, songTitle: 'No Masters', growth: 33.4, timestamp: now },
-  { id: 'jkt-1', city: 'Jakarta', region: 'ID', country: 'Indonesia', lat: -6.2088, lng: 106.8456, amount: 3600, streams: 480000, listeners: 176000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 41.7, timestamp: now },
-  { id: 'sgp-1', city: 'Singapore', region: 'SG', country: 'Singapore', lat: 1.3521, lng: 103.8198, amount: 2600, streams: 346000, listeners: 127000, source: 'apple', songId: 2, songTitle: 'No Masters', growth: 12.1, timestamp: now },
-  { id: 'mnl-1', city: 'Manila', region: 'PH', country: 'Philippines', lat: 14.5995, lng: 120.9842, amount: 2900, streams: 386000, listeners: 142000, source: 'spotify', songId: 3, songTitle: 'Take the Throne', growth: 38.6, timestamp: now },
-  { id: 'sha-1', city: 'Shanghai', region: 'CN', country: 'China', lat: 31.2304, lng: 121.4737, amount: 1200, streams: 160000, listeners: 59000, source: 'other', songId: 1, songTitle: 'Break the Chain', growth: 8.9, timestamp: now },
-  { id: 'hk-1', city: 'Hong Kong', region: 'HK', country: 'Hong Kong', lat: 22.3193, lng: 114.1694, amount: 1800, streams: 240000, listeners: 88000, source: 'apple', songId: 2, songTitle: 'No Masters', growth: 10.4, timestamp: now },
+  // ── North America — Sync ──
+  { id: 'la-sync-1', city: 'Los Angeles', region: 'US', country: 'United States', lat: 34.0522, lng: -118.2437, amount: 25000, streams: 0, listeners: 0, source: 'sync', sourceCategory: 'sync', songId: 1, songTitle: 'Break the Chain', growth: 0, timestamp: now },
+  { id: 'nyc-sync-1', city: 'New York', region: 'US', country: 'United States', lat: 40.7128, lng: -74.006, amount: 15000, streams: 0, listeners: 0, source: 'sync', sourceCategory: 'sync', songId: 2, songTitle: 'No Masters', growth: 0, timestamp: now },
 
-  // ── Africa ──
-  { id: 'lag-1', city: 'Lagos', region: 'NG', country: 'Nigeria', lat: 6.5244, lng: 3.3792, amount: 6200, streams: 824000, listeners: 303000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 68.4, timestamp: now },
-  { id: 'lag-2', city: 'Lagos', region: 'NG', country: 'Nigeria', lat: 6.5244, lng: 3.3792, amount: 4100, streams: 546000, listeners: 200000, source: 'other', songId: 3, songTitle: 'Take the Throne', growth: 54.2, timestamp: now },
-  { id: 'nai-1', city: 'Nairobi', region: 'KE', country: 'Kenya', lat: -1.2921, lng: 36.8219, amount: 3800, streams: 506000, listeners: 186000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 72.1, timestamp: now },
-  { id: 'job-1', city: 'Johannesburg', region: 'ZA', country: 'South Africa', lat: -26.2041, lng: 28.0473, amount: 4600, streams: 612000, listeners: 225000, source: 'apple', songId: 2, songTitle: 'No Masters', growth: 38.9, timestamp: now },
-  { id: 'acc-1', city: 'Accra', region: 'GH', country: 'Ghana', lat: 5.6037, lng: -0.187, amount: 2400, streams: 320000, listeners: 117000, source: 'spotify', songId: 3, songTitle: 'Take the Throne', growth: 81.3, timestamp: now },
-  { id: 'cpt-1', city: 'Cape Town', region: 'ZA', country: 'South Africa', lat: -33.9249, lng: 18.4241, amount: 2100, streams: 280000, listeners: 103000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 29.6, timestamp: now },
-  { id: 'dar-1', city: 'Dar es Salaam', region: 'TZ', country: 'Tanzania', lat: -6.7924, lng: 39.2083, amount: 1400, streams: 186000, listeners: 68000, source: 'other', songId: 1, songTitle: 'Break the Chain', growth: 92.4, timestamp: now },
-  { id: 'kam-1', city: 'Kampala', region: 'UG', country: 'Uganda', lat: 0.3476, lng: 32.5825, amount: 1100, streams: 146000, listeners: 54000, source: 'spotify', songId: 3, songTitle: 'Take the Throne', growth: 105.2, timestamp: now },
-  { id: 'kin-1', city: 'Kinshasa', region: 'CD', country: 'DR Congo', lat: -4.4419, lng: 15.2663, amount: 800, streams: 106000, listeners: 39000, source: 'other', songId: 1, songTitle: 'Break the Chain', growth: 120.0, timestamp: now },
-  { id: 'cas-1', city: 'Casablanca', region: 'MA', country: 'Morocco', lat: 33.5731, lng: -7.5898, amount: 1600, streams: 213000, listeners: 78000, source: 'deezer', songId: 2, songTitle: 'No Masters', growth: 34.5, timestamp: now },
-  { id: 'cai-1', city: 'Cairo', region: 'EG', country: 'Egypt', lat: 30.0444, lng: 31.2357, amount: 1900, streams: 253000, listeners: 93000, source: 'youtube', songId: 3, songTitle: 'Take the Throne', growth: 47.8, timestamp: now },
+  // ── North America — Publishing ──
+  { id: 'nyc-pub-1', city: 'New York', region: 'US', country: 'United States', lat: 40.7128, lng: -74.006, amount: 4200, streams: 0, listeners: 0, source: 'publishing', sourceCategory: 'publishing', songId: 1, songTitle: 'Break the Chain', growth: 12.0, timestamp: now },
+  { id: 'la-pub-1', city: 'Los Angeles', region: 'US', country: 'United States', lat: 34.0522, lng: -118.2437, amount: 3100, streams: 0, listeners: 0, source: 'publishing', sourceCategory: 'publishing', songId: 2, songTitle: 'No Masters', growth: 8.0, timestamp: now },
 
-  // ── Latin America ──
-  { id: 'sao-1', city: 'São Paulo', region: 'BR', country: 'Brazil', lat: -23.5505, lng: -46.6333, amount: 8100, streams: 1078000, listeners: 396000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 22.6, timestamp: now },
-  { id: 'sao-2', city: 'São Paulo', region: 'BR', country: 'Brazil', lat: -23.5505, lng: -46.6333, amount: 3400, streams: 452000, listeners: 166000, source: 'youtube', songId: 3, songTitle: 'Take the Throne', growth: 31.2, timestamp: now },
-  { id: 'rio-1', city: 'Rio de Janeiro', region: 'BR', country: 'Brazil', lat: -22.9068, lng: -43.1729, amount: 4200, streams: 559000, listeners: 205000, source: 'spotify', songId: 2, songTitle: 'No Masters', growth: 18.9, timestamp: now },
-  { id: 'bog-1', city: 'Bogotá', region: 'CO', country: 'Colombia', lat: 4.711, lng: -74.0721, amount: 3100, streams: 412000, listeners: 151000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 36.4, timestamp: now },
-  { id: 'bue-1', city: 'Buenos Aires', region: 'AR', country: 'Argentina', lat: -34.6037, lng: -58.3816, amount: 3800, streams: 506000, listeners: 186000, source: 'spotify', songId: 3, songTitle: 'Take the Throne', growth: 15.8, timestamp: now },
-  { id: 'lim-1', city: 'Lima', region: 'PE', country: 'Peru', lat: -12.0464, lng: -77.0428, amount: 2200, streams: 293000, listeners: 107000, source: 'spotify', songId: 2, songTitle: 'No Masters', growth: 28.3, timestamp: now },
-  { id: 'san-1', city: 'Santiago', region: 'CL', country: 'Chile', lat: -33.4489, lng: -70.6693, amount: 2600, streams: 346000, listeners: 127000, source: 'apple', songId: 1, songTitle: 'Break the Chain', growth: 11.7, timestamp: now },
+  // ── North America — Radio ──
+  { id: 'nyc-rad-1', city: 'New York', region: 'US', country: 'United States', lat: 40.7128, lng: -74.006, amount: 2800, streams: 0, listeners: 0, source: 'radio', sourceCategory: 'radio', songId: 1, songTitle: 'Break the Chain', growth: 5.0, timestamp: now },
+  { id: 'la-rad-1', city: 'Los Angeles', region: 'US', country: 'United States', lat: 34.0522, lng: -118.2437, amount: 1900, streams: 0, listeners: 0, source: 'radio', sourceCategory: 'radio', songId: 3, songTitle: 'Take the Throne', growth: 15.0, timestamp: now },
 
-  // ── Oceania ──
-  { id: 'syd-1', city: 'Sydney', region: 'AU', country: 'Australia', lat: -33.8688, lng: 151.2093, amount: 5400, streams: 719000, listeners: 264000, source: 'spotify', songId: 1, songTitle: 'Break the Chain', growth: 9.8, timestamp: now },
-  { id: 'mel-1', city: 'Melbourne', region: 'AU', country: 'Australia', lat: -37.8136, lng: 144.9631, amount: 3800, streams: 506000, listeners: 186000, source: 'apple', songId: 2, songTitle: 'No Masters', growth: 7.4, timestamp: now },
-  { id: 'akl-1', city: 'Auckland', region: 'NZ', country: 'New Zealand', lat: -36.8485, lng: 174.7633, amount: 1600, streams: 213000, listeners: 78000, source: 'spotify', songId: 3, songTitle: 'Take the Throne', growth: 13.2, timestamp: now },
+  // ── Europe — Streaming ──
+  { id: 'lon-1', city: 'London', region: 'GB', country: 'United Kingdom', lat: 51.5074, lng: -0.1278, amount: 14200, streams: 1890000, listeners: 695000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 10.1, timestamp: now },
+  { id: 'lon-2', city: 'London', region: 'GB', country: 'United Kingdom', lat: 51.5074, lng: -0.1278, amount: 8600, streams: 1140000, listeners: 420000, source: 'apple', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 15.8, timestamp: now },
+  { id: 'ber-1', city: 'Berlin', region: 'DE', country: 'Germany', lat: 52.52, lng: 13.405, amount: 7200, streams: 960000, listeners: 350000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 8.4, timestamp: now },
+  { id: 'ber-2', city: 'Berlin', region: 'DE', country: 'Germany', lat: 52.52, lng: 13.405, amount: 3800, streams: 500000, listeners: 185000, source: 'deezer', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 5.2, timestamp: now },
+  { id: 'par-1', city: 'Paris', region: 'FR', country: 'France', lat: 48.8566, lng: 2.3522, amount: 9400, streams: 1250000, listeners: 460000, source: 'deezer', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 13.6, timestamp: now },
+  { id: 'ams-1', city: 'Amsterdam', region: 'NL', country: 'Netherlands', lat: 52.3676, lng: 4.9041, amount: 4200, streams: 560000, listeners: 205000, source: 'spotify', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 9.1, timestamp: now },
+  { id: 'sto-1', city: 'Stockholm', region: 'SE', country: 'Sweden', lat: 59.3293, lng: 18.0686, amount: 5100, streams: 680000, listeners: 250000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 7.8, timestamp: now },
+  { id: 'mad-1', city: 'Madrid', region: 'ES', country: 'Spain', lat: 40.4168, lng: -3.7038, amount: 3600, streams: 480000, listeners: 176000, source: 'spotify', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 19.4, timestamp: now },
+  { id: 'bar-1', city: 'Barcelona', region: 'ES', country: 'Spain', lat: 41.3874, lng: 2.1686, amount: 2900, streams: 386000, listeners: 142000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 16.2, timestamp: now },
+  { id: 'mil-1', city: 'Milan', region: 'IT', country: 'Italy', lat: 45.4642, lng: 9.19, amount: 3100, streams: 412000, listeners: 151000, source: 'apple', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 11.5, timestamp: now },
+  { id: 'lis-1', city: 'Lisbon', region: 'PT', country: 'Portugal', lat: 38.7223, lng: -9.1393, amount: 1800, streams: 240000, listeners: 88000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 24.3, timestamp: now },
+  { id: 'war-1', city: 'Warsaw', region: 'PL', country: 'Poland', lat: 52.2297, lng: 21.0122, amount: 2400, streams: 320000, listeners: 117000, source: 'spotify', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 35.1, timestamp: now },
+  { id: 'cop-1', city: 'Copenhagen', region: 'DK', country: 'Denmark', lat: 55.6761, lng: 12.5683, amount: 2200, streams: 292000, listeners: 107000, source: 'spotify', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 6.4, timestamp: now },
 
-  // ── Middle East ──
-  { id: 'dub-1', city: 'Dubai', region: 'AE', country: 'UAE', lat: 25.2048, lng: 55.2708, amount: 3200, streams: 426000, listeners: 156000, source: 'apple', songId: 1, songTitle: 'Break the Chain', growth: 21.4, timestamp: now },
-  { id: 'riy-1', city: 'Riyadh', region: 'SA', country: 'Saudi Arabia', lat: 24.7136, lng: 46.6753, amount: 2400, streams: 320000, listeners: 117000, source: 'spotify', songId: 2, songTitle: 'No Masters', growth: 44.6, timestamp: now },
-  { id: 'ist-1', city: 'Istanbul', region: 'TR', country: 'Turkey', lat: 41.0082, lng: 28.9784, amount: 3600, streams: 480000, listeners: 176000, source: 'spotify', songId: 3, songTitle: 'Take the Throne', growth: 27.3, timestamp: now },
-  { id: 'tlv-1', city: 'Tel Aviv', region: 'IL', country: 'Israel', lat: 32.0853, lng: 34.7818, amount: 1800, streams: 240000, listeners: 88000, source: 'apple', songId: 1, songTitle: 'Break the Chain', growth: 8.1, timestamp: now },
+  // ── Europe — Live ──
+  { id: 'lon-live-1', city: 'London', region: 'GB', country: 'United Kingdom', lat: 51.5074, lng: -0.1278, amount: 12000, streams: 0, listeners: 3500, source: 'live', sourceCategory: 'live', songId: 1, songTitle: 'Break the Chain', growth: 0, timestamp: now },
+  { id: 'ber-live-1', city: 'Berlin', region: 'DE', country: 'Germany', lat: 52.52, lng: 13.405, amount: 7500, streams: 0, listeners: 2200, source: 'live', sourceCategory: 'live', songId: 2, songTitle: 'No Masters', growth: 0, timestamp: now },
+  { id: 'par-live-1', city: 'Paris', region: 'FR', country: 'France', lat: 48.8566, lng: 2.3522, amount: 6800, streams: 0, listeners: 2000, source: 'live', sourceCategory: 'live', songId: 3, songTitle: 'Take the Throne', growth: 0, timestamp: now },
+  { id: 'ams-live-1', city: 'Amsterdam', region: 'NL', country: 'Netherlands', lat: 52.3676, lng: 4.9041, amount: 4500, streams: 0, listeners: 1300, source: 'live', sourceCategory: 'live', songId: 1, songTitle: 'Break the Chain', growth: 0, timestamp: now },
+
+  // ── Europe — Publishing ──
+  { id: 'lon-pub-1', city: 'London', region: 'GB', country: 'United Kingdom', lat: 51.5074, lng: -0.1278, amount: 5400, streams: 0, listeners: 0, source: 'publishing', sourceCategory: 'publishing', songId: 1, songTitle: 'Break the Chain', growth: 10.0, timestamp: now },
+  { id: 'par-pub-1', city: 'Paris', region: 'FR', country: 'France', lat: 48.8566, lng: 2.3522, amount: 3200, streams: 0, listeners: 0, source: 'publishing', sourceCategory: 'publishing', songId: 2, songTitle: 'No Masters', growth: 7.0, timestamp: now },
+
+  // ── Europe — Radio ──
+  { id: 'lon-rad-1', city: 'London', region: 'GB', country: 'United Kingdom', lat: 51.5074, lng: -0.1278, amount: 3800, streams: 0, listeners: 0, source: 'radio', sourceCategory: 'radio', songId: 1, songTitle: 'Break the Chain', growth: 6.0, timestamp: now },
+
+  // ── Asia-Pacific — Streaming ──
+  { id: 'tok-1', city: 'Tokyo', region: 'JP', country: 'Japan', lat: 35.6762, lng: 139.6503, amount: 8900, streams: 1180000, listeners: 435000, source: 'apple', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 4.2, timestamp: now },
+  { id: 'tok-2', city: 'Tokyo', region: 'JP', country: 'Japan', lat: 35.6762, lng: 139.6503, amount: 4100, streams: 546000, listeners: 200000, source: 'youtube', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 18.6, timestamp: now },
+  { id: 'seo-1', city: 'Seoul', region: 'KR', country: 'South Korea', lat: 37.5665, lng: 126.978, amount: 7400, streams: 984000, listeners: 362000, source: 'youtube', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 26.3, timestamp: now },
+  { id: 'seo-2', city: 'Seoul', region: 'KR', country: 'South Korea', lat: 37.5665, lng: 126.978, amount: 3200, streams: 426000, listeners: 156000, source: 'spotify', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 14.8, timestamp: now },
+  { id: 'mum-1', city: 'Mumbai', region: 'IN', country: 'India', lat: 19.076, lng: 72.8777, amount: 3400, streams: 452000, listeners: 166000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 45.2, timestamp: now },
+  { id: 'del-1', city: 'Delhi', region: 'IN', country: 'India', lat: 28.7041, lng: 77.1025, amount: 2800, streams: 372000, listeners: 137000, source: 'youtube', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 52.8, timestamp: now },
+  { id: 'ban-1', city: 'Bangkok', region: 'TH', country: 'Thailand', lat: 13.7563, lng: 100.5018, amount: 2100, streams: 280000, listeners: 103000, source: 'spotify', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 33.4, timestamp: now },
+  { id: 'jkt-1', city: 'Jakarta', region: 'ID', country: 'Indonesia', lat: -6.2088, lng: 106.8456, amount: 3600, streams: 480000, listeners: 176000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 41.7, timestamp: now },
+  { id: 'sgp-1', city: 'Singapore', region: 'SG', country: 'Singapore', lat: 1.3521, lng: 103.8198, amount: 2600, streams: 346000, listeners: 127000, source: 'apple', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 12.1, timestamp: now },
+  { id: 'mnl-1', city: 'Manila', region: 'PH', country: 'Philippines', lat: 14.5995, lng: 120.9842, amount: 2900, streams: 386000, listeners: 142000, source: 'spotify', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 38.6, timestamp: now },
+  { id: 'sha-1', city: 'Shanghai', region: 'CN', country: 'China', lat: 31.2304, lng: 121.4737, amount: 1200, streams: 160000, listeners: 59000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 8.9, timestamp: now },
+  { id: 'hk-1', city: 'Hong Kong', region: 'HK', country: 'Hong Kong', lat: 22.3193, lng: 114.1694, amount: 1800, streams: 240000, listeners: 88000, source: 'apple', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 10.4, timestamp: now },
+
+  // ── Asia-Pacific — Sync ──
+  { id: 'tok-sync-1', city: 'Tokyo', region: 'JP', country: 'Japan', lat: 35.6762, lng: 139.6503, amount: 18000, streams: 0, listeners: 0, source: 'sync', sourceCategory: 'sync', songId: 3, songTitle: 'Take the Throne', growth: 0, timestamp: now },
+  { id: 'seo-sync-1', city: 'Seoul', region: 'KR', country: 'South Korea', lat: 37.5665, lng: 126.978, amount: 12000, streams: 0, listeners: 0, source: 'sync', sourceCategory: 'sync', songId: 1, songTitle: 'Break the Chain', growth: 0, timestamp: now },
+
+  // ── Africa — Streaming ──
+  { id: 'lag-1', city: 'Lagos', region: 'NG', country: 'Nigeria', lat: 6.5244, lng: 3.3792, amount: 6200, streams: 824000, listeners: 303000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 68.4, timestamp: now },
+  { id: 'lag-2', city: 'Lagos', region: 'NG', country: 'Nigeria', lat: 6.5244, lng: 3.3792, amount: 4100, streams: 546000, listeners: 200000, source: 'boomplay', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 54.2, timestamp: now },
+  { id: 'lag-3', city: 'Lagos', region: 'NG', country: 'Nigeria', lat: 6.5244, lng: 3.3792, amount: 2800, streams: 372000, listeners: 137000, source: 'audiomack', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 82.1, timestamp: now },
+  { id: 'nai-1', city: 'Nairobi', region: 'KE', country: 'Kenya', lat: -1.2921, lng: 36.8219, amount: 3800, streams: 506000, listeners: 186000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 72.1, timestamp: now },
+  { id: 'job-1', city: 'Johannesburg', region: 'ZA', country: 'South Africa', lat: -26.2041, lng: 28.0473, amount: 4600, streams: 612000, listeners: 225000, source: 'apple', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 38.9, timestamp: now },
+  { id: 'acc-1', city: 'Accra', region: 'GH', country: 'Ghana', lat: 5.6037, lng: -0.187, amount: 2400, streams: 320000, listeners: 117000, source: 'spotify', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 81.3, timestamp: now },
+  { id: 'cpt-1', city: 'Cape Town', region: 'ZA', country: 'South Africa', lat: -33.9249, lng: 18.4241, amount: 2100, streams: 280000, listeners: 103000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 29.6, timestamp: now },
+  { id: 'dar-1', city: 'Dar es Salaam', region: 'TZ', country: 'Tanzania', lat: -6.7924, lng: 39.2083, amount: 1400, streams: 186000, listeners: 68000, source: 'boomplay', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 92.4, timestamp: now },
+  { id: 'kam-1', city: 'Kampala', region: 'UG', country: 'Uganda', lat: 0.3476, lng: 32.5825, amount: 1100, streams: 146000, listeners: 54000, source: 'spotify', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 105.2, timestamp: now },
+  { id: 'kin-1', city: 'Kinshasa', region: 'CD', country: 'DR Congo', lat: -4.4419, lng: 15.2663, amount: 800, streams: 106000, listeners: 39000, source: 'boomplay', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 120.0, timestamp: now },
+  { id: 'cas-1', city: 'Casablanca', region: 'MA', country: 'Morocco', lat: 33.5731, lng: -7.5898, amount: 1600, streams: 213000, listeners: 78000, source: 'deezer', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 34.5, timestamp: now },
+  { id: 'cai-1', city: 'Cairo', region: 'EG', country: 'Egypt', lat: 30.0444, lng: 31.2357, amount: 1900, streams: 253000, listeners: 93000, source: 'youtube', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 47.8, timestamp: now },
+
+  // ── Africa — Live ──
+  { id: 'lag-live-1', city: 'Lagos', region: 'NG', country: 'Nigeria', lat: 6.5244, lng: 3.3792, amount: 14200, streams: 0, listeners: 5000, source: 'live', sourceCategory: 'live', songId: 1, songTitle: 'Break the Chain', growth: 0, timestamp: now },
+  { id: 'nai-live-1', city: 'Nairobi', region: 'KE', country: 'Kenya', lat: -1.2921, lng: 36.8219, amount: 8600, streams: 0, listeners: 3200, source: 'live', sourceCategory: 'live', songId: 1, songTitle: 'Break the Chain', growth: 0, timestamp: now },
+  { id: 'acc-live-1', city: 'Accra', region: 'GH', country: 'Ghana', lat: 5.6037, lng: -0.187, amount: 6400, streams: 0, listeners: 2400, source: 'live', sourceCategory: 'live', songId: 3, songTitle: 'Take the Throne', growth: 0, timestamp: now },
+  { id: 'job-live-1', city: 'Johannesburg', region: 'ZA', country: 'South Africa', lat: -26.2041, lng: 28.0473, amount: 9800, streams: 0, listeners: 3800, source: 'live', sourceCategory: 'live', songId: 2, songTitle: 'No Masters', growth: 0, timestamp: now },
+
+  // ── Africa — Tips (Oryx) ──
+  { id: 'lag-tips-1', city: 'Lagos', region: 'NG', country: 'Nigeria', lat: 6.5244, lng: 3.3792, amount: 3200, streams: 0, listeners: 420, source: 'tips', sourceCategory: 'tips', songId: 1, songTitle: 'Break the Chain', growth: 145.0, timestamp: now },
+  { id: 'nai-tips-1', city: 'Nairobi', region: 'KE', country: 'Kenya', lat: -1.2921, lng: 36.8219, amount: 1800, streams: 0, listeners: 280, source: 'tips', sourceCategory: 'tips', songId: 3, songTitle: 'Take the Throne', growth: 112.0, timestamp: now },
+  { id: 'acc-tips-1', city: 'Accra', region: 'GH', country: 'Ghana', lat: 5.6037, lng: -0.187, amount: 1200, streams: 0, listeners: 180, source: 'tips', sourceCategory: 'tips', songId: 1, songTitle: 'Break the Chain', growth: 95.0, timestamp: now },
+  { id: 'job-tips-1', city: 'Johannesburg', region: 'ZA', country: 'South Africa', lat: -26.2041, lng: 28.0473, amount: 2100, streams: 0, listeners: 310, source: 'tips', sourceCategory: 'tips', songId: 2, songTitle: 'No Masters', growth: 78.0, timestamp: now },
+
+  // ── Africa — Radio ──
+  { id: 'lag-rad-1', city: 'Lagos', region: 'NG', country: 'Nigeria', lat: 6.5244, lng: 3.3792, amount: 1800, streams: 0, listeners: 0, source: 'radio', sourceCategory: 'radio', songId: 1, songTitle: 'Break the Chain', growth: 22.0, timestamp: now },
+  { id: 'job-rad-1', city: 'Johannesburg', region: 'ZA', country: 'South Africa', lat: -26.2041, lng: 28.0473, amount: 1400, streams: 0, listeners: 0, source: 'radio', sourceCategory: 'radio', songId: 2, songTitle: 'No Masters', growth: 18.0, timestamp: now },
+
+  // ── Latin America — Streaming ──
+  { id: 'sao-1', city: 'São Paulo', region: 'BR', country: 'Brazil', lat: -23.5505, lng: -46.6333, amount: 8100, streams: 1078000, listeners: 396000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 22.6, timestamp: now },
+  { id: 'sao-2', city: 'São Paulo', region: 'BR', country: 'Brazil', lat: -23.5505, lng: -46.6333, amount: 3400, streams: 452000, listeners: 166000, source: 'youtube', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 31.2, timestamp: now },
+  { id: 'rio-1', city: 'Rio de Janeiro', region: 'BR', country: 'Brazil', lat: -22.9068, lng: -43.1729, amount: 4200, streams: 559000, listeners: 205000, source: 'spotify', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 18.9, timestamp: now },
+  { id: 'bog-1', city: 'Bogotá', region: 'CO', country: 'Colombia', lat: 4.711, lng: -74.0721, amount: 3100, streams: 412000, listeners: 151000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 36.4, timestamp: now },
+  { id: 'bue-1', city: 'Buenos Aires', region: 'AR', country: 'Argentina', lat: -34.6037, lng: -58.3816, amount: 3800, streams: 506000, listeners: 186000, source: 'spotify', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 15.8, timestamp: now },
+  { id: 'lim-1', city: 'Lima', region: 'PE', country: 'Peru', lat: -12.0464, lng: -77.0428, amount: 2200, streams: 293000, listeners: 107000, source: 'spotify', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 28.3, timestamp: now },
+  { id: 'san-1', city: 'Santiago', region: 'CL', country: 'Chile', lat: -33.4489, lng: -70.6693, amount: 2600, streams: 346000, listeners: 127000, source: 'apple', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 11.7, timestamp: now },
+
+  // ── Latin America — Live ──
+  { id: 'sao-live-1', city: 'São Paulo', region: 'BR', country: 'Brazil', lat: -23.5505, lng: -46.6333, amount: 11000, streams: 0, listeners: 4200, source: 'live', sourceCategory: 'live', songId: 1, songTitle: 'Break the Chain', growth: 0, timestamp: now },
+  { id: 'bog-live-1', city: 'Bogotá', region: 'CO', country: 'Colombia', lat: 4.711, lng: -74.0721, amount: 5200, streams: 0, listeners: 1800, source: 'live', sourceCategory: 'live', songId: 3, songTitle: 'Take the Throne', growth: 0, timestamp: now },
+
+  // ── Latin America — Merch ──
+  { id: 'sao-merch-1', city: 'São Paulo', region: 'BR', country: 'Brazil', lat: -23.5505, lng: -46.6333, amount: 2400, streams: 0, listeners: 0, source: 'merch', sourceCategory: 'merch', songId: 1, songTitle: 'Break the Chain', growth: 35.0, timestamp: now },
+
+  // ── Oceania — Streaming ──
+  { id: 'syd-1', city: 'Sydney', region: 'AU', country: 'Australia', lat: -33.8688, lng: 151.2093, amount: 5400, streams: 719000, listeners: 264000, source: 'spotify', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 9.8, timestamp: now },
+  { id: 'mel-1', city: 'Melbourne', region: 'AU', country: 'Australia', lat: -37.8136, lng: 144.9631, amount: 3800, streams: 506000, listeners: 186000, source: 'apple', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 7.4, timestamp: now },
+  { id: 'akl-1', city: 'Auckland', region: 'NZ', country: 'New Zealand', lat: -36.8485, lng: 174.7633, amount: 1600, streams: 213000, listeners: 78000, source: 'spotify', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 13.2, timestamp: now },
+
+  // ── Oceania — Live ──
+  { id: 'syd-live-1', city: 'Sydney', region: 'AU', country: 'Australia', lat: -33.8688, lng: 151.2093, amount: 7200, streams: 0, listeners: 2100, source: 'live', sourceCategory: 'live', songId: 1, songTitle: 'Break the Chain', growth: 0, timestamp: now },
+  { id: 'mel-live-1', city: 'Melbourne', region: 'AU', country: 'Australia', lat: -37.8136, lng: 144.9631, amount: 5400, streams: 0, listeners: 1600, source: 'live', sourceCategory: 'live', songId: 2, songTitle: 'No Masters', growth: 0, timestamp: now },
+
+  // ── Middle East — Streaming ──
+  { id: 'dub-1', city: 'Dubai', region: 'AE', country: 'UAE', lat: 25.2048, lng: 55.2708, amount: 3200, streams: 426000, listeners: 156000, source: 'apple', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 21.4, timestamp: now },
+  { id: 'riy-1', city: 'Riyadh', region: 'SA', country: 'Saudi Arabia', lat: 24.7136, lng: 46.6753, amount: 2400, streams: 320000, listeners: 117000, source: 'spotify', sourceCategory: 'streaming', songId: 2, songTitle: 'No Masters', growth: 44.6, timestamp: now },
+  { id: 'ist-1', city: 'Istanbul', region: 'TR', country: 'Turkey', lat: 41.0082, lng: 28.9784, amount: 3600, streams: 480000, listeners: 176000, source: 'spotify', sourceCategory: 'streaming', songId: 3, songTitle: 'Take the Throne', growth: 27.3, timestamp: now },
+  { id: 'tlv-1', city: 'Tel Aviv', region: 'IL', country: 'Israel', lat: 32.0853, lng: 34.7818, amount: 1800, streams: 240000, listeners: 88000, source: 'apple', sourceCategory: 'streaming', songId: 1, songTitle: 'Break the Chain', growth: 8.1, timestamp: now },
+
+  // ── Global — Merch ──
+  { id: 'nyc-merch-1', city: 'New York', region: 'US', country: 'United States', lat: 40.7128, lng: -74.006, amount: 4800, streams: 0, listeners: 0, source: 'merch', sourceCategory: 'merch', songId: 1, songTitle: 'Break the Chain', growth: 28.0, timestamp: now },
+  { id: 'lon-merch-1', city: 'London', region: 'GB', country: 'United Kingdom', lat: 51.5074, lng: -0.1278, amount: 3200, streams: 0, listeners: 0, source: 'merch', sourceCategory: 'merch', songId: 2, songTitle: 'No Masters', growth: 22.0, timestamp: now },
+  { id: 'lag-merch-1', city: 'Lagos', region: 'NG', country: 'Nigeria', lat: 6.5244, lng: 3.3792, amount: 1800, streams: 0, listeners: 0, source: 'merch', sourceCategory: 'merch', songId: 1, songTitle: 'Break the Chain', growth: 65.0, timestamp: now },
 ];
 
 // ── Aggregate by country for the old interface ───────────────────────────────
@@ -334,10 +424,57 @@ export function aggregateByCity(flows: CityFlow[]): CityAggregate[] {
   return Array.from(map.values()).sort((a, b) => b.totalAmount - a.totalAmount);
 }
 
-export const MOCK_SOURCES = [
-  { name: 'Spotify', amount: 78500, percentage: 45, color: '#F5F0E8' },
-  { name: 'Apple Music', amount: 42000, percentage: 24, color: '#D4CFC6' },
-  { name: 'YouTube', amount: 28000, percentage: 16, color: '#B3AFA6' },
-  { name: 'Deezer', amount: 15000, percentage: 9, color: '#928F87' },
-  { name: 'Other', amount: 10500, percentage: 6, color: '#716E68' },
-];
+// ── Aggregate by revenue category ────────────────────────────────────────────
+export interface CategoryStats {
+  category: RevenueCategory;
+  label: string;
+  amount: number;
+  percentage: number;
+  color: string;
+  subSources: { name: string; amount: number }[];
+}
+
+const CATEGORY_COLORS: Record<RevenueCategory, string> = {
+  streaming: '#F5F0E8',
+  live: '#D4CFC6',
+  sync: '#B3AFA6',
+  tips: '#928F87',
+  merch: '#716E68',
+  publishing: '#5A5752',
+  radio: '#43413E',
+};
+
+export function aggregateByCategory(flows: CityFlow[]): CategoryStats[] {
+  const catMap = new Map<RevenueCategory, { amount: number; subSources: Map<string, number> }>();
+
+  for (const f of flows) {
+    const cat = f.sourceCategory;
+    if (!catMap.has(cat)) {
+      catMap.set(cat, { amount: 0, subSources: new Map() });
+    }
+    const entry = catMap.get(cat)!;
+    entry.amount += f.amount;
+    entry.subSources.set(f.source, (entry.subSources.get(f.source) || 0) + f.amount);
+  }
+
+  const totalAmount = flows.reduce((sum, f) => sum + f.amount, 0);
+
+  return REVENUE_CATEGORIES
+    .filter((rc) => catMap.has(rc.key))
+    .map((rc) => {
+      const entry = catMap.get(rc.key)!;
+      return {
+        category: rc.key,
+        label: rc.label,
+        amount: entry.amount,
+        percentage: totalAmount > 0 ? Math.round((entry.amount / totalAmount) * 100) : 0,
+        color: CATEGORY_COLORS[rc.key],
+        subSources: Array.from(entry.subSources.entries())
+          .map(([name, amount]) => ({ name, amount }))
+          .sort((a, b) => b.amount - a.amount),
+      };
+    })
+    .sort((a, b) => b.amount - a.amount);
+}
+
+export const MOCK_SOURCES = aggregateByCategory(MOCK_CITY_FLOWS);

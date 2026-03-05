@@ -142,6 +142,36 @@ export function useSongTotalEarnings(songId: bigint | undefined) {
   });
 }
 
+export function useSongSourceEarnings(songId: bigint | undefined, source: string) {
+  return useReadContract({
+    address: CONTRACTS.PAYOUT_MODULE as `0x${string}`,
+    abi: PAYOUT_MODULE_ABI,
+    functionName: 'getSongSourceEarnings',
+    args: songId ? [songId, source] : undefined,
+    query: {
+      enabled: !!songId,
+    },
+  });
+}
+
+export function useSourceEarnings(source: string) {
+  return useReadContract({
+    address: CONTRACTS.PAYOUT_MODULE as `0x${string}`,
+    abi: PAYOUT_MODULE_ABI,
+    functionName: 'getSourceEarnings',
+    args: [source],
+  });
+}
+
+export function useRegionEarnings(region: string) {
+  return useReadContract({
+    address: CONTRACTS.PAYOUT_MODULE as `0x${string}`,
+    abi: PAYOUT_MODULE_ABI,
+    functionName: 'getRegionEarnings',
+    args: [region],
+  });
+}
+
 export function useClaimRoyalties() {
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });

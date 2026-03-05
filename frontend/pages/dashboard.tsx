@@ -136,12 +136,12 @@ export default function Dashboard() {
                 <h2 className="font-display text-heading-sm mb-6">Revenue by source</h2>
                 <div className="space-y-4">
                   {MOCK_SOURCES.map((source) => (
-                    <div key={source.name} className="flex items-center gap-4">
+                    <div key={source.category} className="flex items-center gap-4">
                       <div
                         className="w-2 h-2 rounded-full flex-shrink-0"
                         style={{ backgroundColor: source.color }}
                       />
-                      <span className="flex-1 text-body-sm">{source.name}</span>
+                      <span className="flex-1 text-body-sm">{source.label}</span>
                       <span className="text-gray-400 text-body-sm">{source.percentage}%</span>
                       <span className="font-mono text-body-sm">{source.amount.toLocaleString()} <span className="text-gray-500">USDC</span></span>
                     </div>
@@ -151,7 +151,7 @@ export default function Dashboard() {
                 <div className="mt-8 flex gap-px h-2">
                   {MOCK_SOURCES.map((source) => (
                     <motion.div
-                      key={source.name}
+                      key={source.category}
                       initial={{ width: 0 }}
                       animate={{ width: `${source.percentage}%` }}
                       transition={{ duration: 0.8, ease: 'easeOut' }}

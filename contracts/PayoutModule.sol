@@ -38,6 +38,7 @@ contract PayoutModule is IPayoutModule, AccessControl, ReentrancyGuard, Pausable
 
     // Statistics
     mapping(uint256 => uint256) private _songTotalEarnings;
+    mapping(uint256 => mapping(string => uint256)) private _songSourceEarnings; // songId => source => amount
     mapping(string => uint256) private _regionTotalEarnings; // ISO code => amount
     mapping(string => uint256) private _sourceTotalEarnings; // source => amount
 
@@ -66,6 +67,7 @@ contract PayoutModule is IPayoutModule, AccessControl, ReentrancyGuard, Pausable
     error NoClaimableBalance();
     error TransferFailed();
     error InvalidAmount();
+    error ArrayLengthMismatch();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // Constructor
@@ -147,10 +149,74 @@ contract PayoutModule is IPayoutModule, AccessControl, ReentrancyGuard, Pausable
 
         _songPayouts[songId].push(payoutId);
         _songTotalEarnings[songId] += amount;
+        _songSourceEarnings[songId][source] += amount;
         _regionTotalEarnings[region] += amount;
         _sourceTotalEarnings[source] += amount;
 
         emit RoyaltyReceived(payoutId, songId, amount, token, source, region);
+    }
+
+    /**
+     * @notice Batch deposit royalties for multiple songs in one transaction
+     * @param songIds Array of song IDs
+     * @param amounts Array of amounts per song
+     * @param token Token address (address(0) for native)
+     * @param source Source platform
+     * @param region ISO country code
+     * @return payoutIds Array of created payout IDs
+     */
+    function batchDeposit(
+        uint256[] calldata songIds,
+        uint256[] calldata amounts,
+        address token,
+        string calldata source,
+        string calldata region
+    ) external payable override onlyRole(DEPOSITOR_ROLE) nonReentrant whenNotPaused returns (uint256[] memory payoutIds) {
+        if (songIds.length != amounts.length) revert ArrayLengthMismatch();
+        if (!supportedTokens[token]) revert UnsupportedToken();
+
+        uint256 totalAmount = 0;
+        for (uint256 i = 0; i < amounts.length; i++) {
+            if (amounts[i] == 0) revert InvalidAmount();
+            totalAmount += amounts[i];
+        }
+
+        // Handle token transfer (one transfer for the full batch)
+        if (token == address(0)) {
+            if (msg.value != totalAmount) revert InvalidAmount();
+        } else {
+            IERC20(token).safeTransferFrom(msg.sender, address(this), totalAmount);
+        }
+
+        payoutIds = new uint256[](songIds.length);
+
+        for (uint256 i = 0; i < songIds.length; i++) {
+            ISongRegistry.Song memory song = songRegistry.getSong(songIds[i]);
+            if (song.songId == 0) revert SongNotFound();
+
+            uint256 payoutId = _payoutIdCounter++;
+
+            _payouts[payoutId] = Payout({
+                payoutId: payoutId,
+                songId: songIds[i],
+                amount: amounts[i],
+                token: token,
+                source: source,
+                region: region,
+                timestamp: block.timestamp,
+                distributed: false
+            });
+
+            _songPayouts[songIds[i]].push(payoutId);
+            _songTotalEarnings[songIds[i]] += amounts[i];
+            _songSourceEarnings[songIds[i]][source] += amounts[i];
+            _regionTotalEarnings[region] += amounts[i];
+            _sourceTotalEarnings[source] += amounts[i];
+
+            payoutIds[i] = payoutId;
+
+            emit RoyaltyReceived(payoutId, songIds[i], amounts[i], token, source, region);
+        }
     }
 
     /**
@@ -278,11 +344,15 @@ contract PayoutModule is IPayoutModule, AccessControl, ReentrancyGuard, Pausable
         return _songTotalEarnings[songId];
     }
 
-    function getRegionEarnings(string calldata region) external view returns (uint256) {
+    function getSongSourceEarnings(uint256 songId, string calldata source) external view override returns (uint256) {
+        return _songSourceEarnings[songId][source];
+    }
+
+    function getRegionEarnings(string calldata region) external view override returns (uint256) {
         return _regionTotalEarnings[region];
     }
 
-    function getSourceEarnings(string calldata source) external view returns (uint256) {
+    function getSourceEarnings(string calldata source) external view override returns (uint256) {
         return _sourceTotalEarnings[source];
     }
 
